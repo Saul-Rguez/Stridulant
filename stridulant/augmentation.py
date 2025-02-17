@@ -1,17 +1,41 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb 15 20:56:06 2025
+Module for augmenting audio data using different transformations.
 
+Created on Sat Feb 15 20:56:06 2025
 @author: Saul
+
+This module provides several audio augmentation functions, including:
+- Time stretching
+- Time shifting
+- Pitch shifting
+- Adding white noise
+- Time warping
+
+These transformations are applied randomly to create variations of a given audio snippet.
+The module also includes functionality to generate and save these variations to a specified directory.
+
+Usage:
+- normalize_audio(y): Normalizes the audio between -1 and 1.
+- time_stretch(y, rate_range=(0.8, 1.25)): Applies time stretching to the audio.
+- time_shift(y, max_shift=0.1): Shifts the audio in time (rolls the audio).
+- pitch_shift(y, sr, n_steps_range=(-3, 3)): Shifts the pitch of the audio.
+- add_white_noise(y, noise_level=0.01): Adds white noise to the audio.
+- time_warp(y, max_warp_factor=0.2): Applies time warping to the audio.
+- generate_variations(audio_snippet, num_variations=10): Generates multiple variations of the audio.
+- save_variations(audio_snippet, output_dir, num_variations=10): Saves the generated variations to a directory.
+
+Autor: Saul Rodriguez Martinez
+Fecha de creación: 2025-02-15
+
 """
+
 import numpy as np
 import librosa
-import soundfile as sf
 import random
 from scipy.signal import resample
-from audio_snippet import AudioSnippet
+from stridulant.audio_snippet import AudioSnippet
 
-# Normalizes the audio values to be between -1 and 1
 def normalize_audio(y):
     """
     Normalizes the audio, clipping values to the range -1 to 1.
@@ -24,7 +48,6 @@ def normalize_audio(y):
     """
     return np.clip(y, -1, 1)
 
-# Applies time stretching to the audio, changing its speed
 def time_stretch(y, rate_range=(0.8, 1.25)):
     """
     Applies random time stretching to the audio.
@@ -39,7 +62,6 @@ def time_stretch(y, rate_range=(0.8, 1.25)):
     rate = np.random.uniform(rate_range[0], rate_range[1])
     return normalize_audio(librosa.effects.time_stretch(y, rate=rate))
 
-# Shifts the audio in time, moving it forward or backward
 def time_shift(y, max_shift=0.1):
     """
     Shifts the audio in time (rolls the audio).
@@ -54,7 +76,6 @@ def time_shift(y, max_shift=0.1):
     shift = int(np.random.uniform(-max_shift, max_shift) * len(y))
     return normalize_audio(np.roll(y, shift))
 
-# Changes the pitch of the audio by random steps
 def pitch_shift(y, sr, n_steps_range=(-3, 3)):
     """
     Randomly shifts the pitch of the audio.
@@ -70,7 +91,6 @@ def pitch_shift(y, sr, n_steps_range=(-3, 3)):
     n_steps = np.random.uniform(n_steps_range[0], n_steps_range[1])
     return normalize_audio(librosa.effects.pitch_shift(y, sr, n_steps=n_steps))
 
-# Adds white noise to the audio
 def add_white_noise(y, noise_level=0.01):
     """
     Adds white noise to the audio.
@@ -85,7 +105,6 @@ def add_white_noise(y, noise_level=0.01):
     noise = np.random.normal(0, noise_level, y.shape)
     return normalize_audio(y + noise)
 
-# Applies time warping to the audio
 def time_warp(y, max_warp_factor=0.2):
     """
     Applies time warping to the audio.
@@ -102,7 +121,6 @@ def time_warp(y, max_warp_factor=0.2):
     warped = resample(y, new_length)
     return normalize_audio(warped[:len(y)]) if len(warped) >= len(y) else normalize_audio(np.pad(warped, (0, len(y)-len(warped))))
 
-# Generates random variations of the audio using available transformations
 def generate_variations(audio_snippet, num_variations=10):
     """
     Generates multiple variations of the audio using a random combination of transformations.
@@ -114,25 +132,21 @@ def generate_variations(audio_snippet, num_variations=10):
     Returns:
     list: A list of AudioSnippet objects with the generated variations.
     """
-    # List of available transformations
+
     transformations = [time_stretch, time_shift, lambda y: pitch_shift(y, audio_snippet.sr), add_white_noise, time_warp]
     variations = []
-    
-    # Generate variations
+
     for _ in range(num_variations):
-        y_var = audio_snippet.data.copy()  # Copy the original audio
-        selected = random.sample(transformations, k=random.randint(1, len(transformations)))  # Randomly select some transformations
-        
-        # Apply selected transformations
+        y_var = audio_snippet.data.copy() 
+        selected = random.sample(transformations, k=random.randint(1, len(transformations))) 
+
         for transform in selected:
             y_var = transform(y_var)
-        
-        # Create a new AudioSnippet with the generated variation
+
         variations.append(AudioSnippet(y_var, audio_snippet.sr))
     
     return variations
 
-# Saves the generated variations to an output directory
 def save_variations(audio_snippet, output_dir, num_variations=10):
     """
     Generates and saves variations of an audio to an output directory.

@@ -1,8 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb 15 19:35:15 2025
+Module: AudioSnippet
+Description:
+    This module defines the AudioSnippet class, which represents a snippet (segment) 
+    of audio data. The class provides methods for saving the snippet to a .wav file, 
+    playing the audio, and generating spectrograms from the audio snippet. 
+    It supports various spectrogram types (Mel, FFT, Hilbert) for further analysis 
+    and processing of audio data.
 
-@author: Saul
+Classes:
+    AudioSnippet: Represents a segment of audio with methods to manipulate, save, 
+                  and generate spectrograms.
+
+Author: Saul Rodriguez Martinez
+Date: 2025-02-15
+
 """
 
 import librosa
@@ -12,7 +24,7 @@ import sounddevice as sd
 import os
 import numpy as np
 from scipy.signal import hilbert
-from .spectrogram import Spectrogram
+from stridulant.spectrogram import Spectrogram
 
 class AudioSnippet:
     """
@@ -33,6 +45,20 @@ class AudioSnippet:
         self.audio = audio
         self.sr = sr
         self.start_time = start_time
+        
+        def __repr__(self):
+            """
+            Returns a string representation of the AudioSnippet instance that can
+            be used to recreate the object. Useful for debugging and development.
+            """
+            return f"AudioSnippet(audio_shape={self.audio.shape}, sr={self.sr}, start_time={self.start_time:.2f}s)"
+
+        def __str__(self):
+            """
+            Returns a user-friendly string representation of the AudioSnippet instance.
+            """
+            return f"Audio snippet starting at {self.start_time:.2f} seconds, sampling rate: {self.sr} Hz, audio data shape: {self.audio.shape}"
+        
 
     def save(self, source_name, output_dir, verbose = True):
         """
@@ -70,17 +96,14 @@ class AudioSnippet:
         Spectrogram: A Spectrogram instance containing the generated spectrogram.
         """
         if spec_type == 'hilbert':
-            # Apply Hilbert Transform to get analytic signal
             analytic_signal = hilbert(self.audio)
             amplitude_envelope = np.abs(analytic_signal)
 
-            # Return amplitude envelope and instantaneous frequency as spectrogram_data
             spectrogram_data = amplitude_envelope
             return Spectrogram(spectrogram_data, self.sr, spec_type='hilbert')
         else:
-            # For Mel and FFT spectrograms, proceed as usual
             if spec_type == 'mel':
-                max_freq = self.sr / 2  # Nyquist frequency
+                max_freq = self.sr / 2
                 S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=128, fmax=max_freq)
             else:  # FFT
                 S = np.abs(librosa.stft(self.audio))

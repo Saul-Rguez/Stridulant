@@ -27,6 +27,7 @@ setup(
         'tqdm',
         'scipy',
         'numpy',
+        'tensorflow'
     ],
     classifiers=[  # Clasificadores de PyPI
         'Programming Language :: Python :: 3',

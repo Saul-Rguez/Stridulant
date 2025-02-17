@@ -1,15 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb 15 22:04:03 2025
+This script contains functions to load a pre-trained spectrogram classification model,
+process spectrogram images, and classify them as stridulation or non-stridulation.
+The main functions include:
+- Load and prepare the trained model.
+- Preprocess spectrogram images.
+- Classify the images and move them to the appropriate folders.
+- Create output directories if they do not exist.
 
-@author: Saul
+Images are classified using a threshold of 0.5, where values greater than or equal to 0.5 are 
+considered stridulations, and the rest are classified as non-stridulations.
+
+Author: Saul Rodriguez Martinez
+Creation date: 2025-02-15
+
 """
 
 import os
-import shutil
 import numpy as np
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
+import shutil
+
 
 def load_and_prepare_model(model_path: str):
     """
@@ -41,11 +53,10 @@ def preprocess_image(file_path: str, target_size=(128, 128)):
     - img_array (np.ndarray): Preprocessed image ready for prediction.
     """
     try:
-        # Load and resize the image
         img = image.load_img(file_path, target_size=target_size)
-        img_array = image.img_to_array(img)  # Convert the image to a Numpy array
-        img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
-        img_array /= 255.0  # Normalize the image (assuming the model was trained with normalized images)
+        img_array = image.img_to_array(img)  
+        img_array = np.expand_dims(img_array, axis=0) 
+        img_array /= 255.0 
         return img_array
     except Exception as e:
         print(f"Error preprocessing the image {file_path}: {e}")
@@ -62,25 +73,22 @@ def classify_and_move_spectrograms(input_dir: str, model, output_dir_stridulatio
     - output_dir_stridulations (str): Directory where stridulation spectrograms will be moved.
     - output_dir_non_stridulations (str): Directory where non-stridulation spectrograms will be moved.
     """
-    # Get all spectrogram files in the directory
-    files = [f for f in os.listdir(input_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]  # Adjust as needed
+
+    files = [f for f in os.listdir(input_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
     
     for file in files:
         file_path = os.path.join(input_dir, file)
         
-        # Preprocess the image
+
         img_array = preprocess_image(file_path)
+
+        prediction = model.predict(img_array) 
         
-        # Make the prediction
-        prediction = model.predict(img_array)  # The output of the model will be 0 or 1 (stridulation or non-stridulation)
-        
-        # Check the prediction and move the file
-        if prediction >= 0.5:  # Classification threshold (adjustable)
-            # If prediction is greater than 0.5, move to the stridulation folder
+
+        if prediction >= 0.5:
             shutil.move(file_path, os.path.join(output_dir_stridulations, file))
             print(f"File {file} classified as stridulation.")
         else:
-            # If not, move to the non-stridulation folder
             shutil.move(file_path, os.path.join(output_dir_non_stridulations, file))
             print(f"File {file} classified as non-stridulation.")
 
@@ -106,11 +114,8 @@ def classify_spectrograms(input_dir: str, model_path: str, output_dir_stridulati
     - output_dir_stridulations (str): Directory for stridulation spectrograms.
     - output_dir_non_stridulations (str): Directory for non-stridulation spectrograms.
     """
-    # Load the pre-trained model
     model = load_and_prepare_model(model_path)
-    
-    # Create output directories
+
     create_directories(output_dir_stridulations, output_dir_non_stridulations)
-    
-    # Classify and move the spectrograms
+
     classify_and_move_spectrograms(input_dir, model, output_dir_stridulations, output_dir_non_stridulations)

@@ -1,9 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Feb 15 19:33:20 2025
+This module initializes the Stridulant package and exposes its functionality
+for easy access to users.
 
-@author: Saul
+Author: Saul Rodriguez Martinez
+Date: 2025-02-15
 """
 
-from .audio_snippet import AudioSnippet
-from .spectrogram import Spectrogram
+
+from stridulant.audio_snippet import *
+from stridulant.spectrogram import *
+from stridulant.processing import *
+from stridulant.utils import *
+from stridulant.augmentation import *
+from stridulant.train_model import *
+from stridulant.classify_spectrograms import *
+from stridulant.training_data_prep import *

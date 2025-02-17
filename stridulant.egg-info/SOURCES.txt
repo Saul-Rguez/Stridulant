@@ -11,8 +11,10 @@ Stridulant/utils.py
 stridulant/__init__.py
 stridulant/audio_snippet.py
 stridulant/augmentation.py
+stridulant/classify_spectrograms.py
 stridulant/processing.py
 stridulant/spectrogram.py
+stridulant/train_model.py
 stridulant/utils.py
 stridulant.egg-info/PKG-INFO
 stridulant.egg-info/SOURCES.txt
