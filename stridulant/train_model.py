@@ -15,8 +15,10 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from tensorflow.keras.optimizers import Adam
+import os
+import pandas as pd
 
-def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=10, learning_rate=0.001):
+def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=5, learning_rate=0.001, class_weights = None):
     """
     Trains a Convolutional Neural Network (CNN) for binary classification of stridulations 
     in spectrogram images.
@@ -49,6 +51,11 @@ def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=10, lea
         class_mode = 'binary',
         subset = 'validation'
     )
+    
+    if class_weights is None:
+       class_counts = train_generator.class_indices
+       total_samples = sum(class_counts.values())
+       class_weights = {cls: total_samples / count for cls, count in class_counts.items()}
 
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
@@ -70,9 +77,12 @@ def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=10, lea
     history = model.fit(
         train_generator,
         validation_data = val_generator,
-        epochs = epochs
+        epochs = epochs,
+        class_weight=class_weights
     )
 
-    model.save('stridulation_detection_model.keras')
+    model.save(os.path.join(train_dir,'stridulation_detection_model.keras'))
+    history_df = pd.DataFrame(history.history)
+    history_df.to_csv('training_history.csv', index=False)
 
     return model, history

@@ -16,7 +16,7 @@ import os
 import shutil
 import pandas as pd
 
-def annotate_data(csv_path, snippets_dir, spectrograms_dir, output_dir, snippet_duration=2.0):
+def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0, csv_delim = '\t'):
     """
     Separates audio snippets and spectrograms into positive and negative folders based on annotations.
 
@@ -30,31 +30,37 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, output_dir, snippet_
     The CSV should have two columns: `start_time` and `end_time` indicating the time intervals of stridulations.
     All snippets overlapping these intervals are considered positive samples.
     """
-    annotations = pd.read_csv(csv_path)
-    positives_dir = os.path.join(output_dir, 'positives')
-    negatives_dir = os.path.join(output_dir, 'negatives')
-    os.makedirs(positives_dir, exist_ok=True)
-    os.makedirs(negatives_dir, exist_ok=True)
+    annotations = pd.read_csv(csv_path,delimiter = csv_delim)
+    positive_snippets_dir = os.path.join(snippets_dir, 'positives')
+    negative_snippets_dir = os.path.join(snippets_dir, 'negatives')
+    positive_spectrograms_dir = os.path.join(spectrograms_dir, 'positives')
+    negative_spectrograms_dir = os.path.join(spectrograms_dir, 'negatives')
+    os.makedirs(positive_snippets_dir, exist_ok=True)
+    os.makedirs(negative_snippets_dir, exist_ok=True)
+    os.makedirs(positive_spectrograms_dir, exist_ok=True)
+    os.makedirs(negative_spectrograms_dir, exist_ok=True)
 
-    def is_positive(snippet_name):
-        snippet_time = float(snippet_name.split('_')[-2])
+
+    def is_positive(snippet_time):        
         for _, row in annotations.iterrows():
-            if not (row['end_time'] < snippet_time or row['start_time'] > snippet_time + snippet_duration):
+            if not (row['end_time'] <= snippet_time or row['start_time'] >= snippet_time + snippet_duration):
                 return True
         return False
 
     for file in os.listdir(snippets_dir):
         if file.endswith('.wav') or file.endswith('.png'):
-            target_dir = positives_dir if is_positive(file) else negatives_dir
+            snippet_time = float(file.split('_')[-1].split('.')[0])
+            target_dir = positive_snippets_dir if is_positive(snippet_time) else negative_snippets_dir
             src = os.path.join(snippets_dir, file)
             dst = os.path.join(target_dir, file)
             shutil.move(src, dst)
 
     for file in os.listdir(spectrograms_dir):
         if file.endswith('.png'):
-            target_dir = positives_dir if is_positive(file) else negatives_dir
+            snippet_time = float(file.split('_')[-2].split('.')[0])
+            target_dir = positive_spectrograms_dir if is_positive(snippet_time) else negative_spectrograms_dir
             src = os.path.join(spectrograms_dir, file)
             dst = os.path.join(target_dir, file)
             shutil.move(src, dst)
 
-    print("Separation completed successfully.")
+    print(f"Separation completed successfully in {csv_path}.")

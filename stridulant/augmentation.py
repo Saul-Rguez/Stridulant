@@ -133,21 +133,25 @@ def generate_variations(audio_snippet, num_variations=10):
     list: A list of AudioSnippet objects with the generated variations.
     """
 
-    transformations = [time_stretch, time_shift, lambda y: pitch_shift(y, audio_snippet.sr), add_white_noise, time_warp]
+    transformations = [time_stretch, 
+                       time_shift, 
+                       lambda y: pitch_shift(y, audio_snippet.sr), 
+                       add_white_noise, 
+                       time_warp]
     variations = []
 
     for _ in range(num_variations):
-        y_var = audio_snippet.data.copy() 
+        y_var = audio_snippet.audio.copy() 
         selected = random.sample(transformations, k=random.randint(1, len(transformations))) 
 
         for transform in selected:
             y_var = transform(y_var)
 
-        variations.append(AudioSnippet(y_var, audio_snippet.sr))
+        variations.append(AudioSnippet(y_var, audio_snippet.sr, audio_snippet.start_time))
     
     return variations
 
-def save_variations(audio_snippet, output_dir, num_variations=10):
+def create_variations(audio_snippet, output_dir, num_variations=10):
     """
     Generates and saves variations of an audio to an output directory.
     
