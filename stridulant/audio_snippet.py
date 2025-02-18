@@ -46,19 +46,19 @@ class AudioSnippet:
         self.sr = sr
         self.start_time = start_time
         
-        def __repr__(self):
-            """
-            Returns a string representation of the AudioSnippet instance that can
-            be used to recreate the object. Useful for debugging and development.
-            """
-            return f"AudioSnippet(audio_shape={self.audio.shape}, sr={self.sr}, start_time={self.start_time:.2f}s)"
+    def __repr__(self):
+        """
+        Returns a string representation of the AudioSnippet instance that can
+        be used to recreate the object. Useful for debugging and development.
+        """
+        return f"AudioSnippet(audio_shape={self.audio.shape}, sr={self.sr}, start_time={self.start_time:.2f}s)"
 
-        def __str__(self):
-            """
-            Returns a user-friendly string representation of the AudioSnippet instance.
-            """
-            return f"Audio snippet starting at {self.start_time:.2f} seconds, sampling rate: {self.sr} Hz, audio data shape: {self.audio.shape}"
-        
+    def __str__(self):
+        """
+        Returns a user-friendly string representation of the AudioSnippet instance.
+        """
+        return f"Audio snippet starting at {self.start_time:.2f} seconds, sampling rate: {self.sr} Hz, audio data shape: {self.audio.shape}"
+    
 
     def save(self, source_name, output_dir, verbose = True):
         """

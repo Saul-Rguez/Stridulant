@@ -13,9 +13,11 @@ import stridulant as st
 # myself in this code, so I need to import them
 import os
 import shutil
+import pandas as pd
+import matplotlib.pyplot as plt
 
 #let's simply add the path to the files to be processed
-path = 'D:/ants sound data/tagged_files'
+path = 'F:/estridulaciones/anteater data/tagged_files'
 
 
 #%%
@@ -101,9 +103,39 @@ for file in os.listdir(os.path.join(merged_audio_pos_path,'synthetic')):
                     
 #%%                
 # It's trraining time. With the apropriate function I will now run a training
-# session 
+# session. As it is, the model will automatically balance weights od the classes
+# according to the amount of data on each.
 
-mod, hist = st.train_model('D:/ants sound data/tagged_files/merged_spectrograms')
+mod, hist = st.train_model('F:/estridulaciones/anteater data/tagged_files/Merged_spectrograms', epochs = 10, class_weights = {0:1,1:50})
+#%%
+
+hist = pd.read_csv(os.path.join(path,'Merged_spectrograms/training_history.csv'))
+plt.figure(figsize=(10, 6))
+
+plt.plot(hist['loss'], label='training loss')
+plt.plot(hist['val_loss'], label='validation loss')
+plt.title('loss')
+plt.xlabel('Epoch')
+plt.ylabel('loss')
+plt.legend()
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(hist['accuracy'], label='training accuracy')
+plt.plot(hist['val_accuracy'], label='validation accuracy')
+
+plt.title('accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.show()
+
+#%%
+spec_path = os.path.join(path,'test')
+mod = ('F:/estridulaciones/anteater data/tagged_files/Merged_spectrograms/stridulation_detection_model.keras')
+st.classify_spectrograms (spec_path,mod)
+
 
 
 

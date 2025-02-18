@@ -17,6 +17,7 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropou
 from tensorflow.keras.optimizers import Adam
 import os
 import pandas as pd
+from collections import Counter
 
 def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=5, learning_rate=0.001, class_weights = None):
     """
@@ -53,9 +54,9 @@ def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=5, lear
     )
     
     if class_weights is None:
-       class_counts = train_generator.class_indices
-       total_samples = sum(class_counts.values())
-       class_weights = {cls: total_samples / count for cls, count in class_counts.items()}
+        class_counts = dict(Counter(train_generator.classes))  
+        total_samples = sum(class_counts.values())
+        class_weights = {cls: total_samples / count for cls, count in class_counts.items()}
 
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
@@ -83,6 +84,6 @@ def train_model(train_dir, target_size=(128, 128), batch_size=32, epochs=5, lear
 
     model.save(os.path.join(train_dir,'stridulation_detection_model.keras'))
     history_df = pd.DataFrame(history.history)
-    history_df.to_csv('training_history.csv', index=False)
+    history_df.to_csv(os.path.join(train_dir,'training_history.csv'), index=False)
 
     return model, history

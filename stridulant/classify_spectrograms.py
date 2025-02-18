@@ -105,9 +105,9 @@ def classify_spectrograms(input_dir: str, model_path: str):
     """
     model = load_and_prepare_model(model_path)
     
-    output_dir_pos = f"{input_dir}_positive"
+    output_dir_pos = f"{input_dir}/positive"
     os.makedirs(output_dir_pos, exist_ok=True)
-    output_dir_neg = f"{input_dir}_negative"
+    output_dir_neg = f"{input_dir}/negative"
     os.makedirs(output_dir_pos, exist_ok=True)
     os.makedirs(output_dir_neg, exist_ok=True)
 

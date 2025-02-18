@@ -80,7 +80,7 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
     total_snippets = int(len(audio) / (snippet_duration * sr))
 
     matplotlib.use('Agg')
-    with tqdm(total=total_snippets, desc=f"Processing snippets {audio_path}", unit="snippet", ncols=100, position=0, leave=True) as pbar:
+    with tqdm(total=total_snippets, desc=f"Processing snippets", unit="snippet", ncols=100, position=0, leave=True) as pbar:
         for i in range(total_snippets):
             try:
                 snippet = create_snippet(audio, sr, start_time, snippet_duration)
