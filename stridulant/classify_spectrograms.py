@@ -62,7 +62,7 @@ def preprocess_image(file_path: str, target_size=(128, 128)):
         print(f"Error preprocessing the image {file_path}: {e}")
         raise
 
-def classify_and_move_spectrograms(input_dir: str, model, output_dir_stridulations: str, output_dir_non_stridulations: str):
+def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, output_dir_neg: str):
     """
     Classifies the spectrograms into two categories (stridulation and non-stridulation) 
     and moves the files to their respective folders.
@@ -86,25 +86,14 @@ def classify_and_move_spectrograms(input_dir: str, model, output_dir_stridulatio
         
 
         if prediction >= 0.5:
-            shutil.move(file_path, os.path.join(output_dir_stridulations, file))
-            print(f"File {file} classified as stridulation.")
+            shutil.move(file_path, os.path.join(output_dir_pos, file))
+            print(f"File {file} classified as positive.")
         else:
-            shutil.move(file_path, os.path.join(output_dir_non_stridulations, file))
-            print(f"File {file} classified as non-stridulation.")
+            shutil.move(file_path, os.path.join(output_dir_neg, file))
+            print(f"File {file} classified as negative.")
 
-def create_directories(output_dir_stridulations: str, output_dir_non_stridulations: str):
-    """
-    Creates the necessary folders to store the classified spectrograms if they don't exist.
 
-    Args:
-    - output_dir_stridulations (str): Directory for stridulation spectrograms.
-    - output_dir_non_stridulations (str): Directory for non-stridulation spectrograms.
-    """
-    os.makedirs(output_dir_stridulations, exist_ok=True)
-    os.makedirs(output_dir_non_stridulations, exist_ok=True)
-    print("Output directories created if they didn't exist.")
-
-def classify_spectrograms(input_dir: str, model_path: str, output_dir_stridulations: str, output_dir_non_stridulations: str):
+def classify_spectrograms(input_dir: str, model_path: str):
     """
     Main function to load the model, create output directories, and classify the spectrograms.
 
@@ -115,7 +104,11 @@ def classify_spectrograms(input_dir: str, model_path: str, output_dir_stridulati
     - output_dir_non_stridulations (str): Directory for non-stridulation spectrograms.
     """
     model = load_and_prepare_model(model_path)
+    
+    output_dir_pos = f"{input_dir}_positive"
+    os.makedirs(output_dir_pos, exist_ok=True)
+    output_dir_neg = f"{input_dir}_negative"
+    os.makedirs(output_dir_pos, exist_ok=True)
+    os.makedirs(output_dir_neg, exist_ok=True)
 
-    create_directories(output_dir_stridulations, output_dir_non_stridulations)
-
-    classify_and_move_spectrograms(input_dir, model, output_dir_stridulations, output_dir_non_stridulations)
+    classify_and_move_spectrograms(input_dir, model, output_dir_pos, output_dir_neg)

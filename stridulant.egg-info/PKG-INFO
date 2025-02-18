@@ -17,6 +17,8 @@ Requires-Dist: matplotlib
 Requires-Dist: tqdm
 Requires-Dist: scipy
 Requires-Dist: numpy
+Requires-Dist: tensorflow
+Requires-Dist: pandas
 
 
 # Stridulant
