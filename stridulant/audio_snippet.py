@@ -68,8 +68,8 @@ class AudioSnippet:
         source_name (str): Base name for the saved file (typically the source file name).
         output_dir (str): Directory where the snippet will be saved.
         """
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+    
         file_name = f"{source_name}_snippet_{self.start_time:.1f}.wav"
         output_path = os.path.join(output_dir, file_name)
         sf.write(output_path, self.audio, self.sr)
