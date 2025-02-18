@@ -31,16 +31,22 @@ class AudioSnippet:
     Represents a snippet (segment) of audio data with methods to manipulate,
     save, and play the snippet. This class is used to handle small chunks of audio
     for further analysis or processing.
+    
+    Attributes:
+        audio (np.ndarray): Audio data for the snippet.
+        sr (int): Sampling rate of the audio.
+        start_time (float): Start time of the snippet in seconds.
     """
 
     def __init__(self, audio, sr, start_time):
         """
-        Initializes the AudioSnippet instance.
+        Initializes the AudioSnippet instance with the given audio data, sampling rate,
+        and start time.
 
         Args:
-        audio (np.ndarray): Audio data for the snippet.
-        sr (int): Sampling rate of the audio.
-        start_time (float): Start time of the snippet in seconds.
+            audio (np.ndarray): Audio data for the snippet.
+            sr (int): Sampling rate of the audio.
+            start_time (float): Start time of the snippet in seconds.
         """
         self.audio = audio
         self.sr = sr
@@ -48,29 +54,39 @@ class AudioSnippet:
         
     def __repr__(self):
         """
-        Returns a string representation of the AudioSnippet instance that can
-        be used to recreate the object. Useful for debugging and development.
+        Returns a string representation of the AudioSnippet instance that can be used 
+        to recreate the object. This is useful for debugging and development.
+
+        Returns:
+            str: A string representation of the AudioSnippet instance.
         """
-        return f"AudioSnippet(audio_shape={self.audio.shape}, sr={self.sr}, start_time={self.start_time:.2f}s)"
+        return f"AudioSnippet(audio_shape={self.audio.shape}, sr={self.sr}, start_time={self.start_time}s)"
 
     def __str__(self):
         """
         Returns a user-friendly string representation of the AudioSnippet instance.
+
+        Returns:
+            str: A descriptive string representing the audio snippet.
         """
-        return f"Audio snippet starting at {self.start_time:.2f} seconds, sampling rate: {self.sr} Hz, audio data shape: {self.audio.shape}"
+        return f"Audio snippet starting at {self.start_time} seconds, sampling rate: {self.sr} Hz, audio data shape: {self.audio.shape}"
     
 
-    def save(self, source_name, output_dir, verbose = True):
+    def save(self, source_name, output_dir, verbose=True):
         """
         Saves the current audio snippet as a .wav file in the specified output directory.
 
         Args:
-        source_name (str): Base name for the saved file (typically the source file name).
-        output_dir (str): Directory where the snippet will be saved.
+            source_name (str): Base name for the saved file (typically the source file name).
+            output_dir (str): Directory where the snippet will be saved.
+            verbose (bool): If True, prints a message when the snippet is saved. Default is True.
+        
+        Returns:
+            None
         """
         os.makedirs(output_dir, exist_ok=True)
     
-        file_name = f"{source_name}_snippet_{self.start_time:.1f}.wav"
+        file_name = f"{source_name}_snippet_{self.start_time}.wav"
         output_path = os.path.join(output_dir, file_name)
         sf.write(output_path, self.audio, self.sr)
         if verbose:
@@ -78,22 +94,25 @@ class AudioSnippet:
 
     def play(self):
         """
-        Plays the audio snippet using the sounddevice library.
+        Plays the audio snippet using the sounddevice library. Waits for the playback 
+        to finish before returning.
 
-        Waits for the playback to finish before returning.
+        Returns:
+            None
         """
         sd.play(self.audio, self.sr)
         sd.wait()
 
     def spectrogram(self, spec_type='mel'):
         """
-        Creates and returns a Spectrogram instance based on the current snippet.
+        Creates and returns a Spectrogram instance based on the current snippet. The 
+        spectrogram is generated using one of three types: Mel, FFT, or Hilbert.
 
         Args:
-        spec_type (str): Type of the spectrogram ('mel', 'fft', 'hilbert').
-
+            spec_type (str): Type of the spectrogram ('mel', 'fft', 'hilbert'). Default is 'mel'.
+        
         Returns:
-        Spectrogram: A Spectrogram instance containing the generated spectrogram.
+            Spectrogram: A Spectrogram instance containing the generated spectrogram.
         """
         if spec_type == 'hilbert':
             analytic_signal = hilbert(self.audio)

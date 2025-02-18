@@ -44,6 +44,9 @@ def create_snippet(audio, sr, start_time, duration_sec):
 
     Returns:
     AudioSnippet: An instance of the AudioSnippet class containing the created snippet.
+    
+    Raises:
+    ValueError: If the snippet duration exceeds the available length of the audio.
     """
     start_sample = int(start_time * sr)
     duration_samples = int(duration_sec * sr)
@@ -61,7 +64,7 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
     Args:
     audio_path (str): Path to the input audio file.
     snippet_duration (float): Duration of each snippet in seconds. Default is 2 seconds.
-    output_folder (str): Base directory where the snippets and spectrograms will be saved. If None, uses el mismo directorio del archivo de audio.
+    output_folder (str): Base directory where the snippets and spectrograms will be saved. If None, uses the same directory as the audio file.
     update_freq (int): Frequency of updates for the progress bar (every X snippets).
     """
     if output_folder is None:
@@ -80,7 +83,8 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
     total_snippets = int(len(audio) / (snippet_duration * sr))
 
     matplotlib.use('Agg')
-    with tqdm(total=total_snippets, desc=f"Processing snippets", unit="snippet", ncols=100, position=0, leave=True) as pbar:
+    print(f"Processing file {audio_path}")
+    with tqdm(total=total_snippets, desc="Processing snippets", unit="snippet", ncols=100, position=0, leave=True) as pbar:
         for i in range(total_snippets):
             try:
                 snippet = create_snippet(audio, sr, start_time, snippet_duration)
@@ -96,7 +100,7 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
                     pbar.update(update_freq)
     
             except ValueError as e:
-                print(f"Error creating sippet: {e}")
+                print(f"Error creating snippet: {e}")
                 break
 
                 plt.close('all')
@@ -112,13 +116,13 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
     csv_path (str): Path to the CSV file containing start and end times of stridulations.
     snippets_dir (str): Path to the directory containing audio snippets.
     spectrograms_dir (str): Path to the directory containing spectrograms.
-    output_dir (str): Path to the output directory where positive and negative sets will be stored.
     snippet_duration (float): Duration of each audio snippet in seconds.
-
+    csv_delim (str): Delimiter used in the CSV file (default is tab).
+    
     The CSV should have two columns: `start_time` and `end_time` indicating the time intervals of stridulations.
     All snippets overlapping these intervals are considered positive samples.
     """
-    annotations = pd.read_csv(csv_path,delimiter = csv_delim)
+    annotations = pd.read_csv(csv_path, delimiter=csv_delim)
     positive_snippets_dir = os.path.join(snippets_dir, 'positives')
     negative_snippets_dir = os.path.join(snippets_dir, 'negatives')
     positive_spectrograms_dir = os.path.join(spectrograms_dir, 'positives')
@@ -127,7 +131,6 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
     os.makedirs(negative_snippets_dir, exist_ok=True)
     os.makedirs(positive_spectrograms_dir, exist_ok=True)
     os.makedirs(negative_spectrograms_dir, exist_ok=True)
-
 
     def is_positive(snippet_time):        
         for _, row in annotations.iterrows():

@@ -8,6 +8,7 @@ Author: Saul Rodriguez Martinez
 Date: 2025-02-15
 
 """
+
 import librosa
 import librosa.display
 import numpy as np
@@ -24,11 +25,12 @@ class Spectrogram:
     def __init__(self, spectrogram_data, sr, spec_type='mel'):
         """
         Initializes the Spectrogram instance.
-        
+
         Args:
-        spectrogram_data (np.ndarray): The spectrogram data (e.g., Mel spectrogram, FFT result, or Hilbert transform result).
-        sr (int): The sampling rate of the audio used to generate the spectrogram.
-        spec_type (str): The type of the spectrogram ('mel', 'fft', or 'hilbert').
+            spectrogram_data (np.ndarray): The spectrogram data (e.g., Mel spectrogram, FFT result, or Hilbert transform result).
+            sr (int): The sampling rate of the audio used to generate the spectrogram.
+            spec_type (str): The type of the spectrogram ('mel', 'fft', or 'hilbert').
+
         """
         self.spectrogram_data = spectrogram_data
         self.sr = sr
@@ -38,12 +40,18 @@ class Spectrogram:
         """
         Returns a string representation of the Spectrogram instance that can
         be used to recreate the object. Useful for debugging and development.
+
+        Returns:
+            str: String representation of the Spectrogram object.
         """
         return f"Spectrogram(spectrogram_data={self.spectrogram_data.shape}, sr={self.sr}, spec_type='{self.spec_type}')"
 
     def __str__(self):
         """
         Returns a user-friendly string representation of the Spectrogram instance.
+
+        Returns:
+            str: A descriptive string with information about the spectrogram type, sampling rate, and data shape.
         """
         return f"Spectrogram with {self.spec_type} spectrogram, Sampling rate: {self.sr} Hz, Data shape: {self.spectrogram_data.shape}"
 
@@ -54,10 +62,12 @@ class Spectrogram:
         
         For Hilbert spectrograms, it plots both the amplitude envelope and the instantaneous frequency.
         For Mel and FFT spectrograms, it uses librosa to display the spectrogram.
+
         """
         plt.figure(figsize=(6, 4))
 
         if self.spec_type == 'hilbert':
+            # Plotting Hilbert transform with amplitude envelope and instantaneous frequency
             t = np.arange(len(self.spectrogram_data)) / self.sr
             plt.subplot(2, 1, 1)
             plt.title("Amplitude-modulated Signal (Hilbert Transform)")
@@ -77,6 +87,7 @@ class Spectrogram:
             plt.show()
 
         else:
+            # Plotting Mel or FFT spectrogram
             librosa.display.specshow(self.spectrogram_data, sr=self.sr, cmap='inferno')
             plt.xlabel('Time (s)')
             plt.ylabel('Frequency (Hz)')
@@ -84,18 +95,20 @@ class Spectrogram:
             plt.tight_layout(pad=0)
             plt.show()
 
-    def save(self, output_path, with_labels=False, verbose = True):
+    def save(self, output_path, with_labels=False, verbose=True):
         """
         Saves the spectrogram as an image file.
-        
+
         Args:
-        output_path (str): The path where the spectrogram image will be saved, including the file name and extension (e.g., 'path/to/file.png').
-        with_labels (bool): If True, saves the spectrogram with axes and colorbar. If False, saves it without axes and colorbar. Defaults to False.
+            output_path (str): The path where the spectrogram image will be saved, including the file name and extension (e.g., 'path/to/file.png').
+            with_labels (bool): If True, saves the spectrogram with axes and colorbar. If False, saves it without axes and colorbar. Defaults to False.
+            verbose (bool): If True, prints a message confirming the save location. Defaults to True.
+
         """
-        
         plt.figure(figsize=(4, 4))
 
         if self.spec_type == 'hilbert':
+            # Saving Hilbert transform plot (amplitude envelope and instantaneous frequency)
             t = np.arange(len(self.spectrogram_data)) / self.sr
             plt.subplot(2, 1, 1)
             plt.title("Amplitude-modulated Signal (Hilbert Transform)")
@@ -114,10 +127,12 @@ class Spectrogram:
             plt.tight_layout()
             plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
             plt.close()
+
             if verbose:
                 print(f"Saved spectrogram to '{output_path}'")
         
         else:
+            # Saving Mel or FFT spectrogram plot
             librosa.display.specshow(self.spectrogram_data, sr=self.sr, cmap='inferno')
             if with_labels:
                 plt.xlabel('Time (s)')
@@ -129,5 +144,6 @@ class Spectrogram:
             plt.tight_layout(pad=0)
             plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
             plt.close()
+
             if verbose:
                 print(f"Saved spectrogram to '{output_path}'")
