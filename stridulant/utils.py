@@ -43,5 +43,5 @@ def load_snippet(file_path):
         AudioSnippet: An object containing audio data, sample rate, and length.
     """
     audio, sample_rate = librosa.load(file_path, sr=None)
-    length = len(audio) / sample_rate
-    return AudioSnippet(audio, sample_rate, length)
+    start_time = file_path[0:-4].split("_")[-1]
+    return AudioSnippet(audio, sample_rate, start_time)
