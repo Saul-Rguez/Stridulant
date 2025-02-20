@@ -27,7 +27,7 @@ import os
 import numpy as np
 from scipy.signal import hilbert
 from stridulant.spectrogram import Spectrogram
-from audiomentations import AddGaussianNoise, TimeStretch, PitchShift, Shift, ClippingDistortion, AddBackgroundNoise, TimeMask, FrequencyMask
+from audiomentations import AddGaussianNoise, TimeStretch, PitchShift, Shift, ClippingDistortion, AddBackgroundNoise, TimeMask
 
 
 class AudioSnippet:
@@ -161,7 +161,7 @@ class AudioSnippet:
             Audio_snippet.add_gaussian_noise(min_amplitude=0.002, max_amplitude=0.01)
         """
         augmenter = AddGaussianNoise(min_amplitude, max_amplitude, p=1)
-        self.audio = augmenter(self.audio)  
+        self.audio = augmenter(self.audio, self.sr)  
         self.transformed = True  
         
     def time_stretch(self, min_rate=0.8, max_rate=1.25):
@@ -187,7 +187,7 @@ class AudioSnippet:
             audio_snippet.time_stretch(min_rate=0.9, max_rate=1.1)
         """
         augmenter = TimeStretch(min_rate, max_rate, p=1)  
-        self.audio = augmenter(self.audio)  
+        self.audio = augmenter(self.audio, self.sr)  
         self.transformed = True  
         
     def pitch_shift(self, min_semitones=-4, max_semitones=4):
@@ -213,7 +213,7 @@ class AudioSnippet:
             audio_snippet.pitch_shift(min_semitones=-2, max_semitones=2)
         """
         augmenter = PitchShift(min_semitones, max_semitones, p=1)  
-        self.audio = augmenter(self.audio)  
+        self.audio = augmenter(self.audio, self.sr)  
         self.transformed = True  
     
     def shift(self, min_fraction=-0.5, max_fraction=0.5):
@@ -239,10 +239,10 @@ class AudioSnippet:
             audio_snippet.shift(min_fraction=-0.3, max_fraction=0.3)
         """
         augmenter = Shift(min_fraction, max_fraction, p=1)  
-        self.audio = augmenter(self.audio)  
+        self.audio = augmenter(self.audio,self.sr)  
         self.transformed = True  
     
-    def clipping_distortion(self, min_percent=0.1, max_percent=0.3):
+    def clipping_distortion(self, min_percent=10, max_percent=30):
         """
         Applies clipping distortion to the audio signal by limiting the amplitude to a given range.
     
@@ -251,11 +251,11 @@ class AudioSnippet:
         by setting values above or below this range to the corresponding limit.
     
         Args:
-            min_percent (float, optional): The minimum percentage of the signal's amplitude 
-                                           that will be clipped. Default is 0.1, meaning the 
+            min_percent (int, optional): The minimum percentage of the signal's amplitude 
+                                           that will be clipped. Default is 10 meaning the 
                                            amplitude can be reduced by up to 10%.
-            max_percent (float, optional): The maximum percentage of the signal's amplitude 
-                                           that will be clipped. Default is 0.3, meaning the 
+            max_percent (int, optional): The maximum percentage of the signal's amplitude 
+                                           that will be clipped. Default is 30, meaning the 
                                            amplitude can be reduced by up to 30%.
     
         The clipping distortion is applied with a random clipping percentage within the range 
@@ -265,7 +265,7 @@ class AudioSnippet:
             audio_snippet.clipping_distortion(min_percent=0.05, max_percent=0.2)
         """
         augmenter = ClippingDistortion(min_percent, max_percent, p=1)
-        self.audio = augmenter(self.audio)
+        self.audio = augmenter(self.audio,self.sr)
         self.transformed = True
         
     def add_background_noise(self, background_data, min_background_influence=0.1, max_background_influence=0.3):
@@ -294,7 +294,7 @@ class AudioSnippet:
             audio_snippet.add_background_noise(background_data=my_background_noise, min_background_influence=0.05, max_background_influence=0.2)
         """
         augmenter = AddBackgroundNoise(background_data, min_background_influence, max_background_influence, p=1)
-        self.audio = augmenter(self.audio)
+        self.audio = augmenter(self.audio, self.sr)
         self.transformed = True
 
     def time_mask(self, min_band_part=0.1, max_band_part=0.2):
@@ -318,29 +318,6 @@ class AudioSnippet:
             audio_snippet.time_mask(min_band_part=0.05, max_band_part=0.15)
         """
         augmenter = TimeMask(min_band_part, max_band_part, p=1)
-        self.audio = augmenter(self.audio)
+        self.audio = augmenter(self.audio, self.sr)
         self.transformed = True
     
-    def frequency_mask(self, min_band_part=0.1, max_band_part=0.2):
-        """
-        Applies a frequency mask to the audio snippet by randomly masking a portion of the audio signal
-        along the frequency axis.
-    
-        This method randomly selects a segment of the audio in the frequency domain and "masks" it by 
-        reducing its amplitude to zero. The segment length is determined by the 'min_band_part' and 
-        'max_band_part' parameters, which specify the proportion of the total frequency spectrum to be masked.
-    
-        Args:
-            min_band_part (float, optional): The minimum proportion of the frequency spectrum to be masked.
-                                              Default is 0.1 (10% of the spectrum).
-            max_band_part (float, optional): The maximum proportion of the frequency spectrum to be masked.
-                                              Default is 0.2 (20% of the spectrum).
-    
-        The mask's frequency range is chosen randomly within the range defined by 'min_band_part' and 'max_band_part'.
-    
-        Example:
-            audio_snippet.frequency_mask(min_band_part=0.05, max_band_part=0.15)
-        """
-        augmenter = FrequencyMask(min_band_part, max_band_part, p=1)
-        self.audio = augmenter(self.audio)
-        self.transformed = True

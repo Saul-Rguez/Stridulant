@@ -12,6 +12,5 @@ from stridulant.audio_snippet import *
 from stridulant.spectrogram import *
 from stridulant.processing import *
 from stridulant.utils import *
-from stridulant.augmentation import *
 from stridulant.train_model import *
 from stridulant.classify_spectrograms import *
