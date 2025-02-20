@@ -317,7 +317,7 @@ class AudioSnippet:
         Example:
             audio_snippet.time_mask(min_band_part=0.05, max_band_part=0.15)
         """
-        augmenter = TimeMask(min_band_part, max_band_part, p=1)
+        augmenter = TimeMask(min_band_part, max_band_part, p = 1)
         self.audio = augmenter(self.audio, self.sr)
         self.transformed = True
     
