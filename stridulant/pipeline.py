@@ -51,19 +51,18 @@ for file in os.listdir(path):
                 spec = os.path.join(directory, "Spectrograms")
                 st.annotate_data(notes, snip, spec, snippet_duration=2.0, csv_delim='\t')
 
-            # Create merged directories for positives and negatives
-            if not os.path.exists(os.path.join(path, "Merged_audio")):
-                os.makedirs(os.path.join(path, "Merged_audio/Merged_positives"))
-                os.makedirs(os.path.join(path, "Merged_audio/Merged_negatives"))
-            if not os.path.exists(os.path.join(path, "Merged_spectrograms")):
-                os.makedirs(os.path.join(path, "Merged_spectrograms/Merged_spectrogram_positives"))
-                os.makedirs(os.path.join(path, "Merged_spectrograms/Merged_spectrogram_negatives"))
 
             # Define paths for merged audio and spectrograms
             merged_audio_pos_path = os.path.join(path, "Merged_audio/Merged_positives")
             merged_audio_neg_path = os.path.join(path, "Merged_audio/Merged_negatives")
             merged_spec_pos_path = os.path.join(path, "Merged_spectrograms/Merged_spectrogram_positives")
             merged_spec_neg_path = os.path.join(path, "Merged_spectrograms/Merged_spectrogram_negatives")
+            
+            #create the paths in case they didn't exist
+            os.makedirs(merged_audio_pos_path, exist_ok=True)
+            os.makedirs(merged_audio_neg_path, exist_ok=True)
+            os.makedirs(merged_spec_pos_path, exist_ok=True)
+            os.makedirs(merged_spec_neg_path, exist_ok=True)
 
             # Copy positive and negative audio files to the merged directories
             for file_name in os.listdir(os.path.join(snip, "positives")):
@@ -103,8 +102,15 @@ for file in os.listdir(os.path.join(merged_audio_pos_path, 'synthetic')):
 # %%
 # Training the model
 # The function 'train_model' is used to train a model on the merged spectrograms.
-# The class weights are adjusted based on the data imbalance.
-mod, hist = st.train_model('F:/estridulaciones/anteater data/tagged_files/Merged_spectrograms', epochs=10, class_weights={0: 1, 1: 50})
+# The class weights are adjusted automatically based on the data imbalance.
+# this adjustment is potentially too strict, at least in cases of extreme 
+# I will have to keep testing and adjusting that, I recommend keeping the default
+# auto-weight function, but if you see a lot of overfitting, you may try to define
+# weights in this function. It is a kwarg that should look like this:
+# {0:1,1:50}, meaning {class:weight, another_class:another_weight}. 
+# the second class should be the positives and is the one you wat to give weight
+# because it is a minority of the examples.
+mod, hist = st.train_model('F:/estridulaciones/anteater data/tagged_files/Merged_spectrograms', epochs=10)
 
 # %%
 # Plot training history (loss and accuracy)
