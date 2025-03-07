@@ -95,7 +95,7 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
                 snippet.save(base_name, snippets_dir, verbose=False)
 
                 spec = snippet.spectrogram(spec_type="mel")
-                spec.save(base_name, spectrograms_dir, with_labels=False, verbose=False)
+                spec.save_img(base_name, spectrograms_dir, with_labels=False, verbose=False)
 
                 start_time += snippet_duration
                 if i % update_freq == 0:
@@ -150,7 +150,7 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
 
     for file in os.listdir(spectrograms_dir):
         if file.endswith('.png'):
-            snippet_time = float(file.split('_')[-2].split('.')[0])
+            snippet_time = float(file.split('_')[-1].split('.')[0])
             target_dir = positive_spectrograms_dir if is_positive(snippet_time) else negative_spectrograms_dir
             src = os.path.join(spectrograms_dir, file)
             dst = os.path.join(target_dir, file)

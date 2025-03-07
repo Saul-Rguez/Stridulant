@@ -15,6 +15,7 @@ import numpy as np
 from scipy.signal import hilbert
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
 
 class Spectrogram:
     """
@@ -99,7 +100,7 @@ class Spectrogram:
             plt.tight_layout(pad=0)
             plt.show()
 
-    def save(self, source_name, output_dir, with_labels=False, verbose=True):
+    def save_img(self, source_name, output_dir, with_labels=False, verbose=True):
         """
         Saves the spectrogram as an image file.
 
@@ -112,7 +113,7 @@ class Spectrogram:
         os.makedirs(output_dir, exist_ok=True)
         transform_label = "_transformed" if self.transformed else ""
         norm_label = "_norm" if self.norm else ""
-        file_name = f"{source_name}{norm_label}{transform_label}_spectrogram_{self.start_time}_{self.spec_type}.png"
+        file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}_.png"
         output_path = os.path.join(output_dir, file_name)
         plt.figure(figsize=(4, 4))
 
@@ -156,3 +157,69 @@ class Spectrogram:
 
             if verbose:
                 print(f"Saved spectrogram to '{output_path}'")
+        
+    def save_table(self, source_name, output_dir):
+        """
+        Saves the spectral information as a CSV table, following the same naming convention as the spectrogram image.
+        
+        Args:
+            source_name (str): The base name of the audio file (without extension).
+            output_dir (str): The directory where the CSV file will be saved.
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        transform_label = "_transformed" if self.transformed else ""
+        norm_label = "_norm" if self.normalized else ""
+        file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}.csv"
+        output_path = os.path.join(output_dir, file_name)
+        
+        # Handle Mel spectrogram or FFT spectrogram
+        if self.spec_type == 'mel':
+            # In Mel spectrogram, the frequencies are the Mel bins
+            freqs = librosa.mel_frequencies(n_mels=self.spectrogram_data.shape[0], fmin=0, fmax=self.sr // 2)
+            times = librosa.times_like(self.spectrogram_data)
+            # Transpose the spectrogram data to have rows as time and columns as frequencies
+            spectrogram_values = self.spectrogram_data.T
+            
+            # Create the DataFrame with time as index and frequencies as columns
+            df = pd.DataFrame(spectrogram_values, columns=times, index=freqs)
+            
+            # Save the DataFrame to a CSV file
+            df.to_csv(output_path)
+            print(f"Spectrogram table saved to '{output_path}'")
+        
+        elif self.spec_type == 'fft':
+            # In FFT spectrogram, we calculate the frequencies using fft_frequencies
+            freqs = librosa.fft_frequencies(sr=self.sr)
+            times = librosa.times_like(self.spectrogram_data)
+        
+            # Transpose the spectrogram data to have rows as time and columns as frequencies
+            spectrogram_values = self.spectrogram_data.T
+            
+            # Create the DataFrame with time as index and frequencies as columns
+            df = pd.DataFrame(spectrogram_values, columns=times, index=freqs)
+            
+            # Save the DataFrame to a CSV file
+            df.to_csv(output_path)
+            print(f"Spectrogram table saved to '{output_path}'")
+    
+        elif self.spec_type == 'hilbert':
+            # For Hilbert transform, save the amplitude envelope and instantaneous frequency
+            t = np.arange(len(self.spectrogram_data)) / self.sr
+    
+            # Create a DataFrame for Hilbert data (amplitude envelope and instantaneous frequency)
+            analytic_signal = hilbert(self.spectrogram_data)
+            instantaneous_phase = np.unwrap(np.angle(analytic_signal))
+            instantaneous_frequency = np.diff(instantaneous_phase) / (2.0 * np.pi) * self.sr
+    
+            # Create the DataFrame with time as index and the two types of data (amplitude and frequency) as columns
+            df = pd.DataFrame({
+                'Amplitude_Envelope': self.spectrogram_data,
+                'Instantaneous_Frequency': np.concatenate(([0], instantaneous_frequency))  # Pad with 0 for consistency
+            }, index=t)
+    
+            # Save the Hilbert transform DataFrame to CSV
+            df.to_csv(output_path)
+            print(f"Hilbert spectrogram table saved to '{output_path}'")
+    
+        else:
+            print(f"Spectrogram type '{self.spec_type}' is not supported for table saving.")

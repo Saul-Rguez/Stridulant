@@ -4,13 +4,11 @@ requirements.txt
 setup.py
 Stridulant/__init__.py
 Stridulant/audio_snippet.py
-Stridulant/augmentation.py
 Stridulant/processing.py
 Stridulant/spectrogram.py
 Stridulant/utils.py
 stridulant/__init__.py
 stridulant/audio_snippet.py
-stridulant/augmentation.py
 stridulant/classify_spectrograms.py
 stridulant/pipeline.py
 stridulant/processing.py

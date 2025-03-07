@@ -13,6 +13,9 @@ include README.md
 # Include LICENSE file if you have one
 include LICENSE
 
+# Include users manual
+include Users_manual.docx
+
 # Include any other necessary files (like examples or documentation)
 recursive-include examples *
 recursive-include docs *

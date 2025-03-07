@@ -95,7 +95,7 @@ class AudioSnippet:
         
         transform_label = "_transformed" if self.transformed else ""
         norm_label = "_norm" if self.normalized else ""
-        file_name = f"{source_name}{norm_label}{transform_label}_snippet_{self.start_time}.wav"
+        file_name = f"{source_name}_snippet{norm_label}{transform_label}_{self.start_time}.wav"
         output_path = os.path.join(output_dir, file_name)
         sf.write(output_path, self.audio, self.sr)
         if verbose:
@@ -129,7 +129,7 @@ class AudioSnippet:
             amplitude_envelope = np.abs(analytic_signal)
 
             spectrogram_data = amplitude_envelope
-            return Spectrogram(spectrogram_data, self.sr, spec_type='hilbert')
+            return Spectrogram(spectrogram_data, self.sr, self.start_time, self.transformed, self.normalized, spec_type='hilbert')
         else:
             if spec_type == 'mel':
                 max_freq = self.sr / 2

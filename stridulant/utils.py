@@ -13,7 +13,8 @@ Creation date: 2025-02-15
 import librosa
 from stridulant.audio_snippet import AudioSnippet
 
-def load_audio(path):
+
+def load_audio(path, normalize = False):
     """
     Loads an audio file from the specified path.
 
@@ -33,10 +34,13 @@ def load_audio(path):
         audio, sr = load_audio('path/to/audio/file.wav')
 
     """
+    from stridulant.processing import normalize_audio
     try:
         # Load audio file using librosa
         audio, sr = librosa.load(path, sr=None)
         return audio, sr
+        if normalize:
+            audio = normalize_audio (audio)
     except Exception as e:
         # Raise an error if loading fails
         raise RuntimeError(f"Error loading the audio file {path}: {e}")
