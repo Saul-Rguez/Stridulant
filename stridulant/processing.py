@@ -31,6 +31,9 @@ from stridulant.audio_snippet import AudioSnippet
 from stridulant.utils import load_audio
 import shutil
 import pandas as pd
+import numpy as np
+import soundfile as sf
+
 
 def create_snippet(audio, sr, start_time, duration_sec):
     """
@@ -92,7 +95,6 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
                 snippet.save(base_name, snippets_dir, verbose=False)
 
                 spec = snippet.spectrogram(spec_type="mel")
- #               spec_filename = f"{base_name}_spectrogram_{start_time:.1f}_mel.png"
                 spec.save(base_name, spectrograms_dir, with_labels=False, verbose=False)
 
                 start_time += snippet_duration
@@ -155,3 +157,63 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
             shutil.move(src, dst)
 
     print(f"Separation completed successfully in {csv_path}.")
+    
+
+def normalize_audio(audio: np.ndarray, mean: float = None, std: float = None) -> np.ndarray:
+    """
+    Normalizes an audio signal using the given mean and standard deviation.
+    If mean and std are not provided, they are calculated from the audio signal.
+
+    Args:
+        audio (np.ndarray): The input audio signal.
+        mean (float, optional): The mean value used for normalization. If None, it is computed from the audio.
+        std (float, optional): The standard deviation value used for normalization. If None, it is computed from the audio.
+
+    Returns:
+        np.ndarray: The normalized audio signal.
+    """
+    if mean is None or std is None:
+        mean = np.mean(audio)
+        std = np.std(audio)
+        
+    return (audio - mean) / std
+
+def normalize_global(input_dir: str, output_dir: str):
+    """
+    Normalizes all audio files in a folder using global statistics (mean and standard deviation)
+    computed from all files in the folder.
+
+    Args:
+        input_folder (str): Path to the folder containing input audio files.
+        output_folder (str): Path to the folder where normalized audio files will be saved.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    all_audio = []
+    file_paths = []
+    
+    # Load all audio files and collect their data
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".wav"):
+            filepath = os.path.join(input_dir, filename)            
+            audio, sr = load_audio(filepath)
+            all_audio.append(audio)
+            file_paths.append((filepath, sr))
+    
+    if not all_audio:
+        raise ValueError("No audio files found in the input folder.")
+    
+    # Compute global statistics
+    all_audio_concat = np.concatenate(all_audio)
+    global_mean = np.mean(all_audio_concat)
+    global_std = np.std(all_audio_concat)
+    
+    # Normalize and save each file
+    for (filepath, sr), audio in zip(file_paths, all_audio):
+        normalized_audio = normalize_audio(audio, global_mean, global_std)
+        output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
+        output_filepath = os.path.join(output_dir, output_filename)
+        sf.write(output_filepath, normalized_audio, sr)
+
+        print(f"Saved normalized audio: {output_filepath}")
+

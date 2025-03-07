@@ -27,6 +27,7 @@ import os
 import numpy as np
 from scipy.signal import hilbert
 from stridulant.spectrogram import Spectrogram
+from stridulant.processing import normalize_audio
 from audiomentations import AddGaussianNoise, TimeStretch, PitchShift, Shift, ClippingDistortion, AddBackgroundNoise, TimeMask
 
 
@@ -56,6 +57,7 @@ class AudioSnippet:
         self.sr = sr
         self.start_time = start_time
         self.transformed = False
+        self.normalized = False
         
     def __repr__(self):
         """
@@ -92,7 +94,8 @@ class AudioSnippet:
         os.makedirs(output_dir, exist_ok=True)
         
         transform_label = "_transformed" if self.transformed else ""
-        file_name = f"{source_name}{transform_label}_snippet_{self.start_time}.wav"
+        norm_label = "_norm" if self.normalized else ""
+        file_name = f"{source_name}{norm_label}{transform_label}_snippet_{self.start_time}.wav"
         output_path = os.path.join(output_dir, file_name)
         sf.write(output_path, self.audio, self.sr)
         if verbose:
@@ -108,6 +111,7 @@ class AudioSnippet:
         """
         sd.play(self.audio, self.sr)
         sd.wait()
+        
 
     def spectrogram(self, spec_type='mel'):
         """
@@ -134,7 +138,19 @@ class AudioSnippet:
                 S = np.abs(librosa.stft(self.audio))
 
             S_dB = librosa.power_to_db(S, ref=np.max)
-            return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, spec_type=spec_type)
+            return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, self.normalized, spec_type=spec_type)
+        
+    def normalize(self):
+        """
+        Normalizes audio snippet.
+        
+        This method uses the normalize_audio function to normalize the snippet.
+        
+        Returns:
+            None
+        """
+        self.audio = normalize_audio(self.audio)
+        self.normalized = True
     
     # Augmentation Methods
     def add_gaussian_noise(self, min_amplitude=0.001, max_amplitude=0.015):

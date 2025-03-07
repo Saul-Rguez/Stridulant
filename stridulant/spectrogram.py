@@ -23,7 +23,7 @@ class Spectrogram:
     The spectrogram is computed from the audio data and can be displayed or saved in various formats.
     """
   
-    def __init__(self, spectrogram_data, sr, start_time, transformed, spec_type='mel'):
+    def __init__(self, spectrogram_data, sr, start_time, transformed, normalized, spec_type='mel'):
         """
         Initializes the Spectrogram instance.
 
@@ -38,6 +38,7 @@ class Spectrogram:
         self.spec_type = spec_type
         self.start_time = start_time
         self.transformed = transformed
+        self.normalized = normalized
     
     def __repr__(self):
         """
@@ -110,7 +111,8 @@ class Spectrogram:
         """
         os.makedirs(output_dir, exist_ok=True)
         transform_label = "_transformed" if self.transformed else ""
-        file_name = f"{source_name}{transform_label}_spectrogram_{self.start_time}_{self.spec_type}.png"
+        norm_label = "_norm" if self.norm else ""
+        file_name = f"{source_name}{norm_label}{transform_label}_spectrogram_{self.start_time}_{self.spec_type}.png"
         output_path = os.path.join(output_dir, file_name)
         plt.figure(figsize=(4, 4))
 
