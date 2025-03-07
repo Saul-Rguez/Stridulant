@@ -92,8 +92,8 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
                 snippet.save(base_name, snippets_dir, verbose=False)
 
                 spec = snippet.spectrogram(spec_type="mel")
-                spec_filename = f"{base_name}_spectrogram_{start_time:.1f}_mel.png"
-                spec.save(os.path.join(spectrograms_dir, spec_filename), with_labels=False, verbose=False)
+ #               spec_filename = f"{base_name}_spectrogram_{start_time:.1f}_mel.png"
+                spec.save(base_name, spectrograms_dir, with_labels=False, verbose=False)
 
                 start_time += snippet_duration
                 if i % update_freq == 0:

@@ -134,7 +134,7 @@ class AudioSnippet:
                 S = np.abs(librosa.stft(self.audio))
 
             S_dB = librosa.power_to_db(S, ref=np.max)
-            return Spectrogram(S_dB, self.sr, spec_type=spec_type)
+            return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, spec_type=spec_type)
     
     # Augmentation Methods
     def add_gaussian_noise(self, min_amplitude=0.001, max_amplitude=0.015):

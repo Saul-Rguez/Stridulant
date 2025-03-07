@@ -14,6 +14,7 @@ import librosa.display
 import numpy as np
 from scipy.signal import hilbert
 import matplotlib.pyplot as plt
+import os
 
 class Spectrogram:
     """
@@ -22,7 +23,7 @@ class Spectrogram:
     The spectrogram is computed from the audio data and can be displayed or saved in various formats.
     """
   
-    def __init__(self, spectrogram_data, sr, spec_type='mel'):
+    def __init__(self, spectrogram_data, sr, start_time, transformed, spec_type='mel'):
         """
         Initializes the Spectrogram instance.
 
@@ -35,6 +36,8 @@ class Spectrogram:
         self.spectrogram_data = spectrogram_data
         self.sr = sr
         self.spec_type = spec_type
+        self.start_time = start_time
+        self.transformed = transformed
     
     def __repr__(self):
         """
@@ -95,7 +98,7 @@ class Spectrogram:
             plt.tight_layout(pad=0)
             plt.show()
 
-    def save(self, output_path, with_labels=False, verbose=True):
+    def save(self, source_name, output_dir, with_labels=False, verbose=True):
         """
         Saves the spectrogram as an image file.
 
@@ -105,6 +108,10 @@ class Spectrogram:
             verbose (bool): If True, prints a message confirming the save location. Defaults to True.
 
         """
+        os.makedirs(output_dir, exist_ok=True)
+        transform_label = "_transformed" if self.transformed else ""
+        file_name = f"{source_name}{transform_label}_spectrogram_{self.start_time}_{self.spec_type}.png"
+        output_path = os.path.join(output_dir, file_name)
         plt.figure(figsize=(4, 4))
 
         if self.spec_type == 'hilbert':
@@ -124,7 +131,7 @@ class Spectrogram:
             plt.ylabel("Frequency (Hz)")
             plt.plot(t[1:], instantaneous_frequency, label='Instantaneous Frequency', color='C2')
             plt.legend()
-            plt.tight_layout()
+            plt.tight_layout()        
             plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
             plt.close()
 
