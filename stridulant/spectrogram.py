@@ -178,7 +178,7 @@ class Spectrogram:
             freqs = librosa.mel_frequencies(n_mels=self.spectrogram_data.shape[0], fmin=0, fmax=self.sr // 2)
             times = librosa.times_like(self.spectrogram_data)
             # Transpose the spectrogram data to have rows as time and columns as frequencies
-            spectrogram_values = self.spectrogram_data.T
+            spectrogram_values = self.spectrogram_data
             
             # Create the DataFrame with time as index and frequencies as columns
             df = pd.DataFrame(spectrogram_values, columns=times, index=freqs)
@@ -193,7 +193,7 @@ class Spectrogram:
             times = librosa.times_like(self.spectrogram_data)
         
             # Transpose the spectrogram data to have rows as time and columns as frequencies
-            spectrogram_values = self.spectrogram_data.T
+            spectrogram_values = self.spectrogram_data
             
             # Create the DataFrame with time as index and frequencies as columns
             df = pd.DataFrame(spectrogram_values, columns=times, index=freqs)
