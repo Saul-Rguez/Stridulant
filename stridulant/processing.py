@@ -168,8 +168,11 @@ def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: flo
 
     Args:
         audio (np.ndarray): The input audio signal.
-        mean (float, optional): The mean value used for normalization. If None, it is computed from the audio.
-        std (float, optional): The standard deviation value used for normalization. If None, it is computed from the audio.
+        target_max (float): max percentage for the peak value (default 75%)
+        global_max (float): only needed when normalizing several files to one 
+        single peak. It is the absolute maximum amplitude across several files, 
+        and it supersedes the need to calculate the maximum for each individual 
+        file. It is calculated and used within the mormalize_global function.
 
     Returns:
         np.ndarray: The normalized audio signal.
@@ -186,14 +189,15 @@ def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: flo
     else:
        return audio  # Return original if silent
 
-def normalize_global(input_dir: str, output_dir: str, target_max = 0.75):
+def normalize_global(input_dir: str, output_dir: str, target_max: float = 0.75):
     """
-    Normalizes all audio files in a folder using global statistics (mean and standard deviation)
-    computed from all files in the folder.
+    Normalizes all audio files in a folder using global maximum (one peak for 
+    all files) computed from all files in the folder.
 
     Args:
         input_folder (str): Path to the folder containing input audio files.
         output_folder (str): Path to the folder where normalized audio files will be saved.
+        target_max (float): max percentage for the peak value (default 75%)
     """
     os.makedirs(output_dir, exist_ok=True)
     file_paths = []    
