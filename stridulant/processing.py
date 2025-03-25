@@ -33,6 +33,7 @@ import shutil
 import pandas as pd
 import numpy as np
 import soundfile as sf
+import librosa
 
 
 def create_snippet(audio, sr, start_time, duration_sec):
@@ -159,7 +160,7 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
     print(f"Separation completed successfully in {csv_path}.")
     
 
-def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max = None) -> np.ndarray:
+def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: float = None) -> np.ndarray:
     """
     Peak normalization of the audio signal.
     It rescales any given audio to a percentage of the maximum amplitude.
@@ -195,27 +196,25 @@ def normalize_global(input_dir: str, output_dir: str, target_max = 0.75):
         output_folder (str): Path to the folder where normalized audio files will be saved.
     """
     os.makedirs(output_dir, exist_ok=True)
+    file_paths = []    
 
-    all_audio = []
-    file_paths = []
-    
-    # Load all audio files and collect their data
+    global_max = 0
     for filename in os.listdir(input_dir):
         if filename.endswith(".wav"):
-            filepath = os.path.join(input_dir, filename)            
-            audio, sr = load_audio(filepath)
-            all_audio.append(audio)
-            file_paths.append((filepath, sr))
-    
-    if not all_audio:
-        raise ValueError("No audio files found in the input folder.")
-    
-    all_audio_concat = np.concatenate(all_audio)
-    global_max = np.max(np.abs(all_audio_concat))
+            filepath = os.path.join(input_dir, filename)
+            file_paths.append(filepath)
+            audio, _ = librosa.load(filepath, sr = None)
+            max_value = np.max(np.abs(audio))
+            global_max = max(global_max, max_value)
+            
+    if global_max == 0:
+        raise ValueError("All files are silent or empty. Normalization is not possible.")
 
     # Normalize and save each file
-    for (filepath, sr), audio in zip(file_paths, all_audio):
+    for file in file_paths:
+        audio, sr = librosa.load(file, sr = None)
         normalized_audio = normalize_audio(audio, target_max, global_max)
+        filename = os.path.basename(file)
         output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
         output_filepath = os.path.join(output_dir, output_filename)
         sf.write(output_filepath, normalized_audio, sr)
