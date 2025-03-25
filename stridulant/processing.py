@@ -159,10 +159,11 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
     print(f"Separation completed successfully in {csv_path}.")
     
 
-def normalize_audio(audio: np.ndarray, mean: float = None, std: float = None) -> np.ndarray:
+def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max = None) -> np.ndarray:
     """
-    Normalizes an audio signal using the given mean and standard deviation.
-    If mean and std are not provided, they are calculated from the audio signal.
+    Peak normalization of the audio signal.
+    It rescales any given audio to a percentage of the maximum amplitude.
+    Defaults to 75%.
 
     Args:
         audio (np.ndarray): The input audio signal.
@@ -172,13 +173,19 @@ def normalize_audio(audio: np.ndarray, mean: float = None, std: float = None) ->
     Returns:
         np.ndarray: The normalized audio signal.
     """
-    if mean is None or std is None:
-        mean = np.mean(audio)
-        std = np.std(audio)
-        
-    return (audio - mean) / std
+    if not global_max:
+        current_max = np.max(np.abs(audio))
+    else:
+        current_max = global_max
+  
+    if current_max > 0:
+       scaling_factor = target_max / current_max
+       normalized_audio = audio * scaling_factor
+       return normalized_audio
+    else:
+       return audio  # Return original if silent
 
-def normalize_global(input_dir: str, output_dir: str):
+def normalize_global(input_dir: str, output_dir: str, target_max = 0.75):
     """
     Normalizes all audio files in a folder using global statistics (mean and standard deviation)
     computed from all files in the folder.
@@ -203,14 +210,12 @@ def normalize_global(input_dir: str, output_dir: str):
     if not all_audio:
         raise ValueError("No audio files found in the input folder.")
     
-    # Compute global statistics
     all_audio_concat = np.concatenate(all_audio)
-    global_mean = np.mean(all_audio_concat)
-    global_std = np.std(all_audio_concat)
-    
+    global_max = np.max(np.abs(all_audio_concat))
+
     # Normalize and save each file
     for (filepath, sr), audio in zip(file_paths, all_audio):
-        normalized_audio = normalize_audio(audio, global_mean, global_std)
+        normalized_audio = normalize_audio(audio, target_max, global_max)
         output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
         output_filepath = os.path.join(output_dir, output_filename)
         sf.write(output_filepath, normalized_audio, sr)
