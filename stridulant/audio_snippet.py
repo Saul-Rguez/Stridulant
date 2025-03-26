@@ -41,6 +41,8 @@ class AudioSnippet:
         audio (np.ndarray): Audio data for the snippet.
         sr (int): Sampling rate of the audio.
         start_time (float): Start time of the snippet in seconds.
+        transformed (boolean): flag for transformed files.
+        normalized (boolean): flag for normalized files
     """
 
     def __init__(self, audio, sr, start_time):
@@ -147,7 +149,8 @@ class AudioSnippet:
         This method uses the normalize_audio function to normalize the snippet.
         
         Returns:
-            None
+            None. The snippet itself is altered by the method, the nromalized 
+            flag is set to true.
         """
         self.audio = normalize_audio(self.audio)
         self.normalized = True

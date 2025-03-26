@@ -37,10 +37,10 @@ def load_audio(path, normalize = False):
     from stridulant.processing import normalize_audio
     try:
         # Load audio file using librosa
-        audio, sr = librosa.load(path, sr=None)
-        return audio, sr
+        audio, sr = librosa.load(path, sr=None)        
         if normalize:
             audio = normalize_audio (audio)
+        return audio, sr
     except Exception as e:
         # Raise an error if loading fails
         raise RuntimeError(f"Error loading the audio file {path}: {e}")

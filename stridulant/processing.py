@@ -203,25 +203,29 @@ def normalize_global(input_dir: str, output_dir: str, target_max: float = 0.75):
     file_paths = []    
 
     global_max = 0
-    for filename in os.listdir(input_dir):
-        if filename.endswith(".wav"):
-            filepath = os.path.join(input_dir, filename)
-            file_paths.append(filepath)
-            audio, _ = librosa.load(filepath, sr = None)
-            max_value = np.max(np.abs(audio))
-            global_max = max(global_max, max_value)
+    with tqdm(total=len(os.listdir(input_dir)), desc="Finding global max", unit="file", ncols=100, position=0, leave=True) as pbar:
+        for filename in os.listdir(input_dir):
+            if filename.endswith(".wav"):
+                filepath = os.path.join(input_dir, filename)
+                file_paths.append(filepath)
+                audio, _ = librosa.load(filepath, sr = None)
+                max_value = np.max(np.abs(audio))
+                global_max = max(global_max, max_value)
+            pbar.update(1)
             
     if global_max == 0:
         raise ValueError("All files are silent or empty. Normalization is not possible.")
 
     # Normalize and save each file
-    for file in file_paths:
-        audio, sr = librosa.load(file, sr = None)
-        normalized_audio = normalize_audio(audio, target_max, global_max)
-        filename = os.path.basename(file)
-        output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
-        output_filepath = os.path.join(output_dir, output_filename)
-        sf.write(output_filepath, normalized_audio, sr)
-
-        print(f"Saved normalized audio: {output_filepath}")
+    with tqdm(total=len(file_paths), desc="Normalizing files", unit="file", ncols=100, position=0, leave=True) as pbar:
+        for file in file_paths:
+            audio, sr = librosa.load(file, sr = None)
+            normalized_audio = normalize_audio(audio, target_max, global_max)
+            filename = os.path.basename(file)
+            output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
+            output_filepath = os.path.join(output_dir, output_filename)
+            sf.write(output_filepath, normalized_audio, sr)
+            
+            pbar.set_postfix({"file": filename})  # Optional: display current filename
+            pbar.update(1)  # Update progress bar after processing each file
 

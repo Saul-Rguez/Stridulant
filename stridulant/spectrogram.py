@@ -223,3 +223,23 @@ class Spectrogram:
     
         else:
             print(f"Spectrogram type '{self.spec_type}' is not supported for table saving.")
+            
+            
+    def compute_power_metrics(self):
+        """
+        Computes Average Power Density (APD) and Peak Power Density (PPD) for 
+        fft or mel spectrograms, not for Hilbert
+    
+        Args:
+            S_dB (np.ndarray): Spectrogram data already in dB scale.
+    
+        Returns:
+            tuple: (APD, PPD) in dB.
+        """
+        if self.spec_type == 'hilbert':
+            print ("This function cannot be applied to Hilbert spectrograms")
+        else:
+            APD = np.mean(self.spectrogram_data)
+            PPD = np.max(self.spectrogram_data)   
+    
+        return APD, PPD
