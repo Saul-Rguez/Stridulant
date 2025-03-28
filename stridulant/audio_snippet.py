@@ -26,8 +26,6 @@ import sounddevice as sd
 import os
 import numpy as np
 from scipy.signal import hilbert
-from stridulant.spectrogram import Spectrogram
-from stridulant.processing import normalize_audio
 from audiomentations import AddGaussianNoise, TimeStretch, PitchShift, Shift, ClippingDistortion, AddBackgroundNoise, TimeMask
 
 
@@ -115,7 +113,7 @@ class AudioSnippet:
         sd.wait()
         
 
-    def spectrogram(self, spec_type='mel'):
+    def spectrogram(self, spec_type='mel',):
         """
         Creates and returns a Spectrogram instance based on the current snippet. The 
         spectrogram is generated using one of three types: Mel, FFT, or Hilbert.
@@ -126,6 +124,12 @@ class AudioSnippet:
         Returns:
             Spectrogram: A Spectrogram instance containing the generated spectrogram.
         """
+        from stridulant.spectrogram import Spectrogram
+        
+        n_fft = 256  
+        hop_length = n_fft // 2  
+        window = 'boxcar' 
+        
         if spec_type == 'hilbert':
             analytic_signal = hilbert(self.audio)
             amplitude_envelope = np.abs(analytic_signal)
@@ -135,11 +139,12 @@ class AudioSnippet:
         else:
             if spec_type == 'mel':
                 max_freq = self.sr / 2
-                S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=128, fmax=max_freq)
+                S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=128, fmax=max_freq, center = False)
             else:  # FFT
-                S = np.abs(librosa.stft(self.audio))
-
-            S_dB = librosa.power_to_db(S, ref=np.max)
+                S = np.abs(librosa.stft(self.audio, center = False, n_fft = n_fft, hop_length = hop_length, window = window))**2     
+           
+            S_dB = librosa.power_to_db(S, ref = 1)
+            
             return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, self.normalized, spec_type=spec_type)
         
     def normalize(self):
@@ -152,6 +157,8 @@ class AudioSnippet:
             None. The snippet itself is altered by the method, the nromalized 
             flag is set to true.
         """
+        from stridulant.processing import normalize_audio
+        
         self.audio = normalize_audio(self.audio)
         self.normalized = True
     
