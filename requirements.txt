@@ -5,3 +5,8 @@ matplotlib
 tqdm
 scipy
 numpy
+tensorflow
+pandas
+audiomentations
+shutil
+collections
