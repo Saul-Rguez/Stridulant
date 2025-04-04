@@ -19,7 +19,7 @@ setup(
     author_email='saul.rguezm@gmail.com', 
     url='https://bitbucket.org/Saul_Rguez/stridulant',  
     packages=find_packages(where="src"), 
-    package_dir={"": "src"},
+    package_dir={'': 'src'},
     install_requires=[ 
         'librosa',
         'soundfile',
