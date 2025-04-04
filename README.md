@@ -76,4 +76,4 @@ We welcome contributions to **Stridulant**! If you want to contribute, please fo
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
