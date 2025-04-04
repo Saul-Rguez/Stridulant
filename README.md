@@ -38,7 +38,7 @@ Make sure you have Python 3.6+ installed, along with the necessary dependencies.
 1. Clone the repository:
 
 ```bash
-git clone https://Saul_Rguez@bitbucket.org/Saul_Rguez/stridulant.git
+git clone https://bitbucket.org/Saul_Rguez/stridulant.git
 cd stridulant
 ```
 
