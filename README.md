@@ -1,14 +1,22 @@
 
 # Stridulant
 
-**Stridulant** is an AI-powered tool designed for detecting and analyzing ant stridulations in audio data. It helps researchers and enthusiasts study the acoustic signals produced by ants, particularly the high-pitched stridulation sounds they make for communication.
+**Stridulant** is a powerful tool designed for efficient audio processing and analysis. It simplifies tasks such as cutting audio segments, augmentation, normalization, and the creation of spectrograms. Perfect for generating high-quality graphical material or preparing datasets for AI training.
 
 ## Features
 
-- Detect ant stridulations from audio files (e.g., .wav).
-- Visualize spectrograms and analyze frequency patterns.
-- Easy integration with Python projects via `stridulant` package.
-- Supports common audio processing libraries like `librosa` and `soundfile`.
+- Easily cut audio files into segments (e.g., .wav).
+
+- Apply augmentation techniques to improve audio datasets.
+
+- Normalize audio levels to ensure consistent quality.
+
+- Generate spectrograms and analyze frequency patterns.
+
+- Seamlessly integrates with Python projects via the stridulant package.
+
+- Supports popular audio processing libraries like librosa and soundfile.
+
 
 ## Installation
 
@@ -20,7 +28,7 @@ Make sure you have Python 3.6+ installed, along with the necessary dependencies.
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/tuusuario/stridulant.git
+git clone https://Saul_Rguez@bitbucket.org/Saul_Rguez/stridulant.git
 cd stridulant
 ```
 
@@ -41,11 +49,7 @@ pip install -r requirements.txt
 To get started, import the package and begin analyzing audio files:
 
 ```python
-import stridulant
-
-# Example usage
-audio_file = 'path_to_audio.wav'
-stridulant.detect_stridulations(audio_file)
+import stridulant as st
 ```
 
 For more advanced functionality, check the provided documentation and explore the different methods to analyze the stridulations, visualize spectrograms, and more.
@@ -56,7 +60,7 @@ We welcome contributions to **Stridulant**! If you want to contribute, please fo
 
 1. Fork the repository.
 2. Create a new branch (`git checkout -b feature-branch`).
-3. Make your changes and commit them (`git commit -am 'Add new feature'`).
+3. Make your changes and commit them (`git commit -m 'Add new feature'`).
 4. Push to the branch (`git push origin feature-branch`).
 5. Create a new pull request.
 
