@@ -1,2 +1,0 @@
-[console_scripts]
-stridulant-cli = stridulant.cli:main

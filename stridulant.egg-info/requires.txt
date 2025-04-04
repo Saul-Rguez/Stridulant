@@ -1,9 +1,0 @@
-librosa
-soundfile
-sounddevice
-matplotlib
-tqdm
-scipy
-numpy
-tensorflow
-pandas
