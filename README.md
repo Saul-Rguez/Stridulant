@@ -22,14 +22,15 @@
 
 You can install **Stridulant** locally using `pip`:
 
-bash
+```bash
 pip install .
-
+```
 
 Alternatively, you can install the requirements directly from requirements.txt:
 
-bash
+```bash
 pip install -r requirements.txt
+```
 
 ### Requirements
 Make sure you have Python 3.6+ installed, along with the necessary dependencies.
