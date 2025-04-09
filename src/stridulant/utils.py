@@ -11,6 +11,7 @@ Creation date: 2025-02-15
 """
 
 import librosa
+import soundfile as sf
 from stridulant.audio_snippet import AudioSnippet
 
 
@@ -36,8 +37,9 @@ def load_audio(path, normalize = False):
     """
     from stridulant.processing import normalize_audio
     try:
-        # Load audio file using librosa
-        audio, sr = librosa.load(path, sr=None)        
+        with open (path,'rb') as sound_file:
+            audio, sr = sf.read(sound_file)
+        sound_file.close()       
         if normalize:
             audio = normalize_audio (audio)
         return audio, sr

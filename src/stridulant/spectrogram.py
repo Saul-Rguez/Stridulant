@@ -40,7 +40,8 @@ class Spectrogram:
         self.start_time = start_time
         self.transformed = transformed
         self.normalized = normalized
-    
+        
+        
     def __repr__(self):
         """
         Returns a string representation of the Spectrogram instance that can

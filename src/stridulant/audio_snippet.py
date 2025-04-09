@@ -127,7 +127,7 @@ class AudioSnippet:
         from stridulant.spectrogram import Spectrogram
         
         n_fft = 256  
-        hop_length = n_fft // 2  
+        hop_length = 224
         window = 'boxcar' 
         
         if spec_type == 'hilbert':
@@ -141,10 +141,8 @@ class AudioSnippet:
                 max_freq = self.sr / 2
                 S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=128, fmax=max_freq, center = False)
             else:  # FFT
-                S = np.abs(librosa.stft(self.audio, center = False, n_fft = n_fft, hop_length = hop_length, window = window))**2     
-           
+                S = np.abs(librosa.stft(self.audio, center = False, n_fft = n_fft, hop_length = hop_length, window = window))**2
             S_dB = librosa.power_to_db(S, ref = 1)
-            
             return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, self.normalized, spec_type=spec_type)
         
     def normalize(self):
