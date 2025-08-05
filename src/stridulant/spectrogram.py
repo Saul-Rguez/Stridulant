@@ -113,7 +113,7 @@ class Spectrogram:
         """
         os.makedirs(output_dir, exist_ok=True)
         transform_label = "_transformed" if self.transformed else ""
-        norm_label = "_norm" if self.norm else ""
+        norm_label = "_norm" if self.normalized else ""
         file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}_.png"
         output_path = os.path.join(output_dir, file_name)
         plt.figure(figsize=(4, 4))

@@ -34,7 +34,7 @@ import pandas as pd
 import numpy as np
 import soundfile as sf
 import librosa
-
+from scipy.signal import butter, filtfilt
 
 def create_snippet(audio, sr, start_time, duration_sec):
     """
@@ -229,3 +229,31 @@ def normalize_global(input_dir: str, output_dir: str, target_max: float = 0.75):
             pbar.set_postfix({"file": filename})  # Optional: display current filename
             pbar.update(1)  # Update progress bar after processing each file
 
+
+def highpass_filter(audio, sr, cutoff=3000, order=8):
+    """
+    Applies a high-pass Butterworth filter to the input audio signal.
+
+    Args:
+        audio (np.ndarray): Input audio signal.
+        sr (int): Sampling rate of the audio.
+        cutoff (float): Cutoff frequency in Hz. Default is 3000 Hz.
+        order (int): Filter order. Default is 8 (48 dB/octave roll-off).
+
+    Returns:
+        np.ndarray: Filtered audio signal.
+    
+    Raises:
+        ValueError: If input parameters are invalid or filtering fails.
+    """
+    try:
+        nyq = 0.5 * sr
+        normal_cutoff = cutoff / nyq
+        if normal_cutoff >= 1.0:
+            raise ValueError("Cutoff frequency must be less than Nyquist rate.")
+
+        b, a = butter(order, normal_cutoff, btype='highpass', analog=False)
+        filtered_audio = filtfilt(b, a, audio, axis=0)
+        return filtered_audio
+    except Exception as e:
+        raise ValueError(f"Error applying high-pass filter: {e}")

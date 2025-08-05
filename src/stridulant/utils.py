@@ -13,6 +13,8 @@ Creation date: 2025-02-15
 import librosa
 import soundfile as sf
 from stridulant.audio_snippet import AudioSnippet
+import os
+import warnings
 
 
 def load_audio(path, normalize = False):
@@ -73,3 +75,27 @@ def load_snippet(file_path):
     
     # Return an AudioSnippet object with the loaded data
     return AudioSnippet(audio, sample_rate, start_time)
+
+def save_audio(audio, sr, path, overwrite=False):
+    """
+    Saves the audio data to a WAV file using soundfile.
+
+    Args:
+        audio (np.ndarray): Audio signal.
+        sr (int): Sampling rate.
+        path (str): Path to save the file (should end in .wav).
+        overwrite (bool): If False, warns if file exists. If True, overwrites silently.
+
+    Raises:
+        RuntimeError: If saving fails.
+    """
+    if not path.lower().endswith(".wav"):
+        path += ".wav"
+
+    if os.path.exists(path) and not overwrite:
+        warnings.warn(f"File '{path}' already exists. Use overwrite=True to overwrite.", stacklevel=2)
+        return
+    try:
+        sf.write(path, audio, sr)
+    except Exception as e:
+        raise RuntimeError(f"Error saving audio file: {e}")
