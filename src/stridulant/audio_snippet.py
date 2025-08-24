@@ -18,7 +18,7 @@ Author: Saul Rodriguez Martinez
 Date: 2025-02-15
 
 """
-
+from pynput import keyboard
 import librosa
 import librosa.display
 import soundfile as sf
@@ -103,15 +103,37 @@ class AudioSnippet:
 
     def play(self):
         """
-        Plays the audio snippet using the sounddevice library. Waits for the playback 
-        to finish before returning.
-
-        Returns:
-            None
+        Plays audio with keyboard interruption using pynput.
         """
-        sd.play(self.audio, self.sr)
-        sd.wait()
+        print("Press Esc to stop")
         
+        stop_playback = False
+        
+        def on_press(key):
+            nonlocal stop_playback
+            try:
+                if key == keyboard.Key.esc:
+                    print("\nInterrupted")
+                    sd.stop()
+                    stop_playback = True
+                    return False  
+            except:
+                pass
+        
+    
+        listener = keyboard.Listener(on_press=on_press)
+        listener.start()
+        
+        
+        sd.play(self.audio, self.sr)
+        
+    
+        while sd.get_stream().active and not stop_playback:
+            sd.sleep(100)
+        
+        listener.stop()
+        sd.wait()
+            
 
     def spectrogram(self, spec_type='mel',):
         """

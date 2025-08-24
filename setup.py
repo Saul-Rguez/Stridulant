@@ -31,6 +31,7 @@ setup(
         'tensorflow',
         'pandas',
         'audiomentations'
+        'pynput'
     ],
     classifiers=[ 
         'Programming Language :: Python :: 3',
