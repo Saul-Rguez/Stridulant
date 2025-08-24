@@ -30,7 +30,7 @@ setup(
         'numpy',
         'tensorflow',
         'pandas',
-        'audiomentations'
+        'audiomentations',
         'pynput'
     ],
     classifiers=[ 
