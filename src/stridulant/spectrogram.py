@@ -177,32 +177,30 @@ class Spectrogram:
         if self.spec_type == 'mel':
             # In Mel spectrogram, the frequencies are the Mel bins
             freqs = librosa.mel_frequencies(n_mels=self.spectrogram_data.shape[0], fmin=0, fmax=self.sr // 2)
-            times = librosa.times_like(self.spectrogram_data)
-            # Transpose the spectrogram data to have rows as time and columns as frequencies
+            times = librosa.times_like(self.spectrogram_data, sr=self.sr)
+            # Transpose the spectrogram data to have rows as frequencies and columns as times
             spectrogram_values = self.spectrogram_data
             
-            # Create the DataFrame with time as index and frequencies as columns
-            df = pd.DataFrame(spectrogram_values, columns=times, index=freqs)
+            # Create the DataFrame with frequencies as index and times as columns
+            df = pd.DataFrame(spectrogram_values, index=freqs, columns=times)
             
             # Save the DataFrame to a CSV file
             df.to_csv(output_path)
             print(f"Spectrogram table saved to '{output_path}'")
         
         elif self.spec_type == 'fft':
-            # In FFT spectrogram, we calculate the frequencies using fft_frequencies
-            freqs = librosa.fft_frequencies(sr=self.sr)
-            times = librosa.times_like(self.spectrogram_data)
-        
-            # Transpose the spectrogram data to have rows as time and columns as frequencies
-            spectrogram_values = self.spectrogram_data
+            # In FFT spectrogram, calculate frequencies based on actual data shape
+            n_freq_bins = self.spectrogram_data.shape[0]
+            freqs = librosa.fft_frequencies(sr=self.sr, n_fft=2*(n_freq_bins-1))
+            times = librosa.times_like(self.spectrogram_data, sr=self.sr, n_fft=2*(n_freq_bins-1))
             
-            # Create the DataFrame with time as index and frequencies as columns
-            df = pd.DataFrame(spectrogram_values, columns=times, index=freqs)
+            # Create the DataFrame with frequencies as index and times as columns
+            df = pd.DataFrame(self.spectrogram_data, index=freqs, columns=times)
             
             # Save the DataFrame to a CSV file
             df.to_csv(output_path)
             print(f"Spectrogram table saved to '{output_path}'")
-    
+        
         elif self.spec_type == 'hilbert':
             # For Hilbert transform, save the amplitude envelope and instantaneous frequency
             t = np.arange(len(self.spectrogram_data)) / self.sr
@@ -212,10 +210,10 @@ class Spectrogram:
             instantaneous_phase = np.unwrap(np.angle(analytic_signal))
             instantaneous_frequency = np.diff(instantaneous_phase) / (2.0 * np.pi) * self.sr
     
-            # Create the DataFrame with time as index and the two types of data (amplitude and frequency) as columns
+            # Create the DataFrame with time as index and the two types of data as columns
             df = pd.DataFrame({
                 'Amplitude_Envelope': self.spectrogram_data,
-                'Instantaneous_Frequency': np.concatenate(([0], instantaneous_frequency))  # Pad with 0 for consistency
+                'Instantaneous_Frequency': np.concatenate(([0], instantaneous_frequency))
             }, index=t)
     
             # Save the Hilbert transform DataFrame to CSV
