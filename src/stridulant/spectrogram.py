@@ -61,19 +61,22 @@ class Spectrogram:
         """
         return f"Spectrogram with {self.spec_type} spectrogram, Sampling rate: {self.sr} Hz, Data shape: {self.spectrogram_data.shape}"
 
-    def plot(self):
+    def plot(self, color="inferno"):
         """
         Displays the spectrogram as a plot with axes, color bar, and labels.
         Adjusts representation based on the type of spectrogram.
         
         For Hilbert spectrograms, it plots both the amplitude envelope and the instantaneous frequency.
         For Mel and FFT spectrograms, it uses librosa to display the spectrogram.
+        
+        Args:
+            color (str): sets the colormap. Use plt.colormaps() to learn about your options.
 
         """
-        plt.figure(figsize=(6, 4))
 
         if self.spec_type == 'hilbert':
             # Plotting Hilbert transform with amplitude envelope and instantaneous frequency
+            plt.figure(figsize=(20, 8)) 
             t = np.arange(len(self.spectrogram_data)) / self.sr
             plt.subplot(2, 1, 1)
             plt.title("Amplitude-modulated Signal (Hilbert Transform)")
@@ -92,22 +95,32 @@ class Spectrogram:
             plt.tight_layout()
             plt.show()
 
-        else:
-            # Plotting Mel or FFT spectrogram
-            librosa.display.specshow(self.spectrogram_data, sr=self.sr, cmap='inferno')
+        elif self.spec_type == 'mel':
+            plt.figure(figsize=(20, 8))
+            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='mel', cmap=color)
+            plt.xlabel('Time (s)')
+            plt.ylabel('Frequency (Hz)')
+            plt.colorbar(format='%+2.0f dB')
+            plt.tight_layout(pad=0)
+            plt.show()
+        
+        elif self.spec_type == 'fft':
+            plt.figure(figsize=(20, 8))
+            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='linear', cmap=color)
             plt.xlabel('Time (s)')
             plt.ylabel('Frequency (Hz)')
             plt.colorbar(format='%+2.0f dB')
             plt.tight_layout(pad=0)
             plt.show()
 
-    def save_img(self, source_name, output_dir, with_labels=False, verbose=True):
+    def save_img(self, source_name, output_dir,color = "inferno", with_labels=False, verbose=True):
         """
         Saves the spectrogram as an image file.
 
         Args:
             output_path (str): The path where the spectrogram image will be saved, including the file name and extension (e.g., 'path/to/file.png').
             with_labels (bool): If True, saves the spectrogram with axes and colorbar. If False, saves it without axes and colorbar. Defaults to False.
+            color (str): sets the color map for the plot. Use plt.colormaps() to know your options
             verbose (bool): If True, prints a message confirming the save location. Defaults to True.
 
         """
@@ -119,7 +132,7 @@ class Spectrogram:
         plt.figure(figsize=(4, 4))
 
         if self.spec_type == 'hilbert':
-            # Saving Hilbert transform plot (amplitude envelope and instantaneous frequency)
+            plt.figure(figsize=(20, 8)) 
             t = np.arange(len(self.spectrogram_data)) / self.sr
             plt.subplot(2, 1, 1)
             plt.title("Amplitude-modulated Signal (Hilbert Transform)")
@@ -136,24 +149,42 @@ class Spectrogram:
             plt.plot(t[1:], instantaneous_frequency, label='Instantaneous Frequency', color='C2')
             plt.legend()
             plt.tight_layout()        
-            plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+            plt.savefig(output_path, bbox_inches='tight', pad_inches=0.5)
             plt.close()
 
             if verbose:
                 print(f"Saved spectrogram to '{output_path}'")
         
-        else:
-            # Saving Mel or FFT spectrogram plot
-            librosa.display.specshow(self.spectrogram_data, sr=self.sr, cmap='inferno')
+        elif self.spec_type == "mel":
+            plt.figure(figsize=(20, 8)) 
+            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='mel', cmap=color)
             if with_labels:
                 plt.xlabel('Time (s)')
                 plt.ylabel('Frequency (Hz)')
                 plt.colorbar(format='%+2.0f dB')
+                pad=0.5
             else:
                 plt.axis('off')
+                pad=0
 
-            plt.tight_layout(pad=0)
-            plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+            plt.tight_layout(pad=3.0)
+            plt.savefig(output_path, bbox_inches='tight', pad_inches=pad)
+            plt.close()
+            
+        elif self.spec_type == "fft":
+            plt.figure(figsize=(20, 8)) 
+            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='linear', cmap=color)
+            if with_labels:
+                plt.xlabel('Time (s)')
+                plt.ylabel('Frequency (Hz)')
+                plt.colorbar(format='%+2.0f dB')
+                pad = 0.5
+            else:
+                plt.axis('off')
+                pad = 0
+
+            plt.tight_layout(pad=3.0)
+            plt.savefig(output_path, bbox_inches='tight', pad_inches=pad)
             plt.close()
 
             if verbose:

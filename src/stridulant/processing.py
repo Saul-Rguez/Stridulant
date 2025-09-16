@@ -60,7 +60,7 @@ def create_snippet(audio, sr, start_time, duration_sec):
     else:
         raise ValueError(f"Snippet duration exceeds available audio length at {start_time} seconds.")
 
-def process_audio_file(audio_path, snippet_duration=2, output_folder=None, update_freq=10):
+def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_type="mel", color = "inferno", output_folder=None, update_freq=10):
     """
     Processes the given audio file by splitting it into snippets, generating a mel spectrogram for each, 
     and saving them in appropriate directories.
@@ -69,6 +69,9 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
     audio_path (str): Path to the input audio file.
     snippet_duration (float): Duration of each snippet in seconds. Default is 2 seconds.
     output_folder (str): Base directory where the snippets and spectrograms will be saved. If None, uses the same directory as the audio file.
+    with_labels (bool): toggles the axis and labels.
+    spec_type (str): chooses between the 3 posible types, hil, mel or fft.
+    color (str): choose a colormap for the image
     update_freq (int): Frequency of updates for the progress bar (every X snippets).
     """
     if output_folder is None:
@@ -95,8 +98,8 @@ def process_audio_file(audio_path, snippet_duration=2, output_folder=None, updat
 
                 snippet.save(base_name, snippets_dir, verbose=False)
 
-                spec = snippet.spectrogram(spec_type="mel")
-                spec.save_img(base_name, spectrograms_dir, with_labels=False, verbose=False)
+                spec = snippet.spectrogram(spec_type=spec_type)
+                spec.save_img(base_name, spectrograms_dir, with_labels=with_labels, color=color, verbose=False)
 
                 start_time += snippet_duration
                 if i % update_freq == 0:
