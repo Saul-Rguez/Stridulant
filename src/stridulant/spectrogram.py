@@ -24,7 +24,7 @@ class Spectrogram:
     The spectrogram is computed from the audio data and can be displayed or saved in various formats.
     """
   
-    def __init__(self, spectrogram_data, sr, start_time, transformed, normalized, spec_type='mel'):
+    def __init__(self, spectrogram_data, sr, start_time, transformed, normalized, spec_type='mel', fft_times = None):
         """
         Initializes the Spectrogram instance.
 
@@ -40,6 +40,7 @@ class Spectrogram:
         self.start_time = start_time
         self.transformed = transformed
         self.normalized = normalized
+        self.fft_times = fft_times
         
         
     def __repr__(self):
@@ -73,7 +74,7 @@ class Spectrogram:
             color (str): sets the colormap. Use plt.colormaps() to learn about your options.
 
         """
-
+        
         if self.spec_type == 'hilbert':
             # Plotting Hilbert transform with amplitude envelope and instantaneous frequency
             plt.figure(figsize=(20, 8)) 
@@ -106,7 +107,8 @@ class Spectrogram:
         
         elif self.spec_type == 'fft':
             plt.figure(figsize=(20, 8))
-            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='linear', cmap=color)
+            extent = [self.fft_times[0], self.fft_times[-1], 0, self.sr/2]
+            plt.imshow(self.spectrogram_data, extent=extent, aspect='auto', origin='lower', cmap=color)
             plt.xlabel('Time (s)')
             plt.ylabel('Frequency (Hz)')
             plt.colorbar(format='%+2.0f dB')

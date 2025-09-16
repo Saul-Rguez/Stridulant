@@ -162,10 +162,12 @@ class AudioSnippet:
             if spec_type == 'mel':
                 max_freq = self.sr / 2
                 S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=128, fmax=max_freq, center = False)
+                spec_times = None
             else:  # FFT
                 S = np.abs(librosa.stft(self.audio, center = False, n_fft = n_fft, hop_length = hop_length, window = window))**2
+                spec_times = librosa.times_like(S, sr=self.sr, hop_length=hop_length, n_fft=n_fft)
             S_dB = librosa.power_to_db(S, ref = 1)
-            return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, self.normalized, spec_type=spec_type)
+            return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, self.normalized, spec_type=spec_type, fft_times = spec_times)
         
     def normalize(self):
         """
