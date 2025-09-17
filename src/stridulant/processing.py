@@ -60,7 +60,7 @@ def create_snippet(audio, sr, start_time, duration_sec):
     else:
         raise ValueError(f"Snippet duration exceeds available audio length at {start_time} seconds.")
 
-def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_type="mel", color = "inferno", output_folder=None, update_freq=10):
+def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_type="mel",n_fft = 256, hop_length = 224, window = "boxcar", color = "inferno", output_folder=None, update_freq=10):
     """
     Processes the given audio file by splitting it into snippets, generating a mel spectrogram for each, 
     and saving them in appropriate directories.
@@ -72,6 +72,9 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
     with_labels (bool): toggles the axis and labels.
     spec_type (str): chooses between the 3 posible types, hil, mel or fft.
     color (str): choose a colormap for the image
+    n_fft (int): size of the window for the fft (see spectrogram function).
+    hop_length (int): overlap of the windows (see spectrogram funtion)
+    window (str): window type (see spectrogram function)
     update_freq (int): Frequency of updates for the progress bar (every X snippets).
     """
     if output_folder is None:
@@ -98,7 +101,7 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
 
                 snippet.save(base_name, snippets_dir, verbose=False)
 
-                spec = snippet.spectrogram(spec_type=spec_type)
+                spec = snippet.spectrogram(spec_type=spec_type,n_fft = n_fft, hop_length = hop_length, window = window)
                 spec.save_img(base_name, spectrograms_dir, with_labels=with_labels, color=color, verbose=False)
 
                 start_time += snippet_duration
