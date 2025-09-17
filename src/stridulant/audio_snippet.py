@@ -135,22 +135,33 @@ class AudioSnippet:
         sd.wait()
             
 
-    def spectrogram(self, spec_type='mel',):
+    def spectrogram(self, spec_type='mel',n_fft = 256, hop_length = 224, window = "boxcar"):
         """
         Creates and returns a Spectrogram instance based on the current snippet. The 
         spectrogram is generated using one of three types: Mel, FFT, or Hilbert.
+        
+        The default arguments are the ones used for power analysis as we conduct them. But
+        I have made it more flexible because I think it is needed for certain ultrasounds.
 
         Args:
             spec_type (str): Type of the spectrogram ('mel', 'fft', 'hilbert'). Default is 'mel'.
+            n_fft (int): this is the size of the window analised. In a nutshell,bigger numbers will
+        increase resolution in frequency and smaller numbers increase resolution in time. This is a lot
+        more efficient if the number is a power of 2.
+            hop_length (int): overlap between windows. Bigger numbers (up tho the window size) will make
+        the process faster at the expense of temporal resolution, but also will make windows more independent
+        from each other. Big numbers are best for power analysis, smaller numbers are better for very short
+        sounds and high temporal reolution (visualization and perhaps CNNs)
+            window (str): shape of the window of the fft. Windows are related to leakage, or which is a "spill"
+        of energy from a frequency bin to the adyacent one. The default is boxcar, which has a lot of leakage, 
+        but also the best frequency reolution. We have been using that one for power analysis, but others with
+        less leakage are possible. Check Librosa documentation to know your options.
         
         Returns:
             Spectrogram: A Spectrogram instance containing the generated spectrogram.
         """
         from stridulant.spectrogram import Spectrogram
         
-        n_fft = 256  
-        hop_length = 224
-        window = 'boxcar' 
         
         if spec_type == 'hilbert':
             analytic_signal = hilbert(self.audio)
