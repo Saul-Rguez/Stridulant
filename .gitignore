@@ -1,1 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+*.pyd
 *.egg-info
+
+# Archivos temporales
+~$*
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Entornos virtuales
+.env/
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema
+.DS_Store
+Thumbs.db
