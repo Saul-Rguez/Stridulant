@@ -118,12 +118,14 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
     
             plt.close('all')  
         
+    except KeyboardInterrupt:
+        print ("\nProcess cancelled.")
     except Exception as e:
         print(f"Processing error: {e}")
     finally:
         matplotlib.use(original_backend)
         plt.close('all') 
-        print("\nGraphic backend restored.")
+        print("Graphic backend restored.")
         
 def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0, csv_delim = '\t'):
     """
