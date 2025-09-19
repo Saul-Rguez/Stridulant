@@ -77,46 +77,54 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
     window (str): window type (see spectrogram function)
     update_freq (int): Frequency of updates for the progress bar (every X snippets).
     """
-    if output_folder is None:
-        output_folder = os.path.splitext(audio_path)[0]
-
-    audio, sr = load_audio(audio_path)
-
-    base_name = os.path.splitext(os.path.basename(audio_path))[0]
-    snippets_dir = os.path.join(output_folder, "Audio_snippets")
-    spectrograms_dir = os.path.join(output_folder, "Spectrograms")
-    os.makedirs(snippets_dir, exist_ok=True)
-    os.makedirs(spectrograms_dir, exist_ok=True)
-
-    start_time = 0
-
-    total_snippets = int(len(audio) / (snippet_duration * sr))
-
-    matplotlib.use('Agg')
-    print(f"Processing file {audio_path}")
-    with tqdm(total=total_snippets, desc="Processing snippets", unit="snippet", ncols=100, position=0, leave=True) as pbar:
-        for i in range(total_snippets):
-            try:
-                snippet = create_snippet(audio, sr, start_time, snippet_duration)
-
-                snippet.save(base_name, snippets_dir, verbose=False)
-
-                spec = snippet.spectrogram(spec_type=spec_type,n_fft = n_fft, hop_length = hop_length, window = window)
-                spec.save_img(base_name, spectrograms_dir, with_labels=with_labels, color=color, verbose=False)
-
-                start_time += snippet_duration
-                if i % update_freq == 0:
-                    pbar.update(update_freq)
+    original_backend = matplotlib.get_backend()
+    try:
+        if output_folder is None:
+            output_folder = os.path.splitext(audio_path)[0]
     
-            except ValueError as e:
-                print(f"Error creating snippet: {e}")
-                break
-
-                plt.close('all')
-
-        plt.close('all')  
-    matplotlib.use('inline')
-
+        audio, sr = load_audio(audio_path)
+    
+        base_name = os.path.splitext(os.path.basename(audio_path))[0]
+        snippets_dir = os.path.join(output_folder, "Audio_snippets")
+        spectrograms_dir = os.path.join(output_folder, "Spectrograms")
+        os.makedirs(snippets_dir, exist_ok=True)
+        os.makedirs(spectrograms_dir, exist_ok=True)
+    
+        start_time = 0
+    
+        total_snippets = int(len(audio) / (snippet_duration * sr))
+    
+        matplotlib.use('Agg')
+        print(f"Processing file {audio_path}")
+        with tqdm(total=total_snippets, desc="Processing snippets", unit="snippet", ncols=100, position=0, leave=True) as pbar:
+            for i in range(total_snippets):
+                try:
+                    snippet = create_snippet(audio, sr, start_time, snippet_duration)
+    
+                    snippet.save(base_name, snippets_dir, verbose=False)
+    
+                    spec = snippet.spectrogram(spec_type=spec_type,n_fft = n_fft, hop_length = hop_length, window = window)
+                    spec.save_img(base_name, spectrograms_dir, with_labels=with_labels, color=color, verbose=False)
+    
+                    start_time += snippet_duration
+                    if i % update_freq == 0:
+                        pbar.update(update_freq)
+        
+                except ValueError as e:
+                    print(f"Error creating snippet: {e}")
+                    break
+    
+                    plt.close('all')
+    
+            plt.close('all')  
+        
+    except Exception as e:
+        print(f"Processing error: {e}")
+    finally:
+        matplotlib.use(original_backend)
+        plt.close('all') 
+        print("\nGraphic backend restored.")
+        
 def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0, csv_delim = '\t'):
     """
     Separates audio snippets and spectrograms into positive and negative folders based on annotations.
