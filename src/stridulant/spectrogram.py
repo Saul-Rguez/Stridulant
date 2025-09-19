@@ -160,7 +160,8 @@ class Spectrogram:
         
         elif self.spec_type == "mel":
             plt.figure(figsize=(20, 8)) 
-            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='mel', cmap=color)
+            extent = [self.fft_times[0], self.fft_times[-1], 0, self.sr/2]
+            plt.imshow(self.spectrogram_data, extent=extent, aspect='auto', origin='lower', cmap=color)
             if with_labels:
                 plt.xlabel('Time (s)')
                 plt.ylabel('Frequency (Hz)')
@@ -176,7 +177,8 @@ class Spectrogram:
             
         elif self.spec_type == "fft":
             plt.figure(figsize=(20, 8)) 
-            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='linear', cmap=color)
+            extent = [self.fft_times[0], self.fft_times[-1], 0, self.sr/2]
+            plt.imshow(self.spectrogram_data, extent=extent, aspect='auto', origin='lower', cmap=color)
             if with_labels:
                 plt.xlabel('Time (s)')
                 plt.ylabel('Frequency (Hz)')
