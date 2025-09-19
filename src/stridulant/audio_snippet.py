@@ -135,7 +135,7 @@ class AudioSnippet:
         sd.wait()
             
 
-    def spectrogram(self, spec_type='mel',n_fft = 256, hop_length = 224, window = "boxcar"):
+    def spectrogram(self, spec_type='mel',n_fft = 256, hop_length = 224, window = "boxcar", n_mels=128):
         """
         Creates and returns a Spectrogram instance based on the current snippet. The 
         spectrogram is generated using one of three types: Mel, FFT, or Hilbert.
@@ -172,11 +172,11 @@ class AudioSnippet:
         else:
             if spec_type == 'mel':
                 max_freq = self.sr / 2
-                S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=128, fmax=max_freq, center = False)
+                S = librosa.feature.melspectrogram(y=self.audio, sr=self.sr, n_mels=n_mels, fmax=max_freq, center = False, n_fft = n_fft, hop_length = hop_length, window = window)
                 spec_times = None
             else:  # FFT
                 S = np.abs(librosa.stft(self.audio, center = False, n_fft = n_fft, hop_length = hop_length, window = window))**2
-                spec_times = librosa.times_like(S, sr=self.sr, hop_length=hop_length, n_fft=n_fft)
+            spec_times = spec_times = librosa.frames_to_time(np.arange(S.shape[1]), sr=self.sr, hop_length=hop_length, n_fft=n_fft)
             S_dB = librosa.power_to_db(S, ref = 1)
             return Spectrogram(S_dB, self.sr, self.start_time, self.transformed, self.normalized, spec_type=spec_type, fft_times = spec_times)
         

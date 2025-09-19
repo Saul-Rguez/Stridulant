@@ -115,7 +115,7 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
                 plt.close('all')
 
         plt.close('all')  
-    matplotlib.use('TkAgg')
+    matplotlib.use('inline')
 
 def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0, csv_delim = '\t'):
     """

@@ -98,7 +98,8 @@ class Spectrogram:
 
         elif self.spec_type == 'mel':
             plt.figure(figsize=(20, 8))
-            librosa.display.specshow(self.spectrogram_data, sr=self.sr, x_axis='time', y_axis='mel', cmap=color)
+            extent = [self.fft_times[0], self.fft_times[-1], 0, self.sr/2]
+            plt.imshow(self.spectrogram_data, extent=extent, aspect='auto', origin='lower', cmap=color)
             plt.xlabel('Time (s)')
             plt.ylabel('Frequency (Hz)')
             plt.colorbar(format='%+2.0f dB')
