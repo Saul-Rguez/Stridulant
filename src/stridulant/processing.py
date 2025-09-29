@@ -60,7 +60,7 @@ def create_snippet(audio, sr, start_time, duration_sec):
     else:
         raise ValueError(f"Snippet duration exceeds available audio length at {start_time} seconds.")
 
-def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_type="mel",n_fft = 256, hop_length = 224, window = "boxcar", color = "inferno", output_folder=None, update_freq=10):
+def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_type="mel",n_fft = 256, hop_length = 224, window = "boxcar", color = "inferno", snip_norm = False, output_folder=None, update_freq=10):
     """
     Processes the given audio file by splitting it into snippets, generating a mel spectrogram for each, 
     and saving them in appropriate directories.
@@ -100,6 +100,9 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
             for i in range(total_snippets):
                 try:
                     snippet = create_snippet(audio, sr, start_time, snippet_duration)
+                    
+                    if snip_norm:
+                        snippet.normalize()
     
                     snippet.save(base_name, snippets_dir, verbose=False)
     
