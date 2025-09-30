@@ -26,6 +26,8 @@ import sounddevice as sd
 import os
 import numpy as np
 from scipy.signal import hilbert
+from scipy import signal
+from scipy.ndimage import uniform_filter1d
 from audiomentations import AddGaussianNoise, TimeStretch, PitchShift, Shift, ClippingDistortion, AddBackgroundNoise, TimeMask
 
 
@@ -380,3 +382,238 @@ class AudioSnippet:
         self.audio = augmenter(self.audio, self.sr)
         self.transformed = True
     
+
+    
+    def find_audio_events(self, min_event_duration=0.02, threshold_percentile=30):
+        """
+        Detects potential audio events (like stridulations) within the snippet.
+        Uses energy-based event detection to find regions of interest.
+        
+        Args:
+            min_event_duration (float): Minimum duration of an event in seconds
+            threshold_percentile (float): Percentile for energy threshold (0-100)
+            
+        Returns:
+            list: List of tuples (start_time, end_time, max_energy) for each detected event
+        """
+        
+        # Calculate energy envelope
+        envelope = np.abs(signal.hilbert(self.audio))
+        envelope_smoothed = uniform_filter1d(envelope, size=int(0.01 * self.sr))
+        
+        # Set threshold based on percentile of energy
+        energy_threshold = np.percentile(envelope_smoothed, threshold_percentile)
+        
+        # Find regions above threshold
+        above_threshold = envelope_smoothed > energy_threshold
+        
+        # Group consecutive samples above threshold into events
+        events = []
+        in_event = False
+        event_start = 0
+        min_event_samples = int(min_event_duration * self.sr)
+        
+        for i, is_above in enumerate(above_threshold):
+            if is_above and not in_event:
+                # Event starts
+                in_event = True
+                event_start = i
+            elif not is_above and in_event:
+                # Event ends
+                in_event = False
+                event_end = i
+                event_duration = (event_end - event_start) / self.sr
+                
+                # Only keep events longer than minimum duration
+                if (event_end - event_start) >= min_event_samples:
+                    event_energy = np.max(envelope_smoothed[event_start:event_end])
+                    events.append((
+                        event_start / self.sr,  # Start time in seconds
+                        event_end / self.sr,    # End time in seconds  
+                        event_energy            # Maximum energy in event
+                    ))
+        
+        return events
+    
+    def extract_stridulation_features(self, event_index=0):
+        """
+        Extracts stridulation features from a specific detected event within the snippet.
+        If no event_index specified, analyzes the most prominent event.
+        
+        Args:
+            event_index (int): Index of the event to analyze (default: 0 = most energetic)
+            
+        Returns:
+            dict: Dictionary with extracted features from the specified event
+        """
+        from scipy import signal
+        from scipy.ndimage import uniform_filter1d
+        
+        # Detect events in the snippet
+        events = self.find_audio_events()
+        
+        if not events:
+            # No events detected, return default features
+            return self._get_default_features()
+        
+        # Sort events by energy (most energetic first) and select the requested one
+        events.sort(key=lambda x: x[2], reverse=True)
+        
+        if event_index >= len(events):
+            event_index = 0  # Fall back to most energetic event
+            
+        event_start, event_end, event_energy = events[event_index]
+        
+        # Convert times to sample indices
+        start_sample = int(event_start * self.sr)
+        end_sample = int(event_end * self.sr)
+        event_audio = self.audio[start_sample:end_sample]
+        
+        features = {}
+        features['event_start_time'] = event_start
+        features['event_duration'] = event_end - event_start
+        features['event_energy'] = event_energy
+        
+        # 1. ENVELOPE ANALYSIS - within the detected event
+        if len(event_audio) > 0:
+            envelope = np.abs(signal.hilbert(event_audio))
+            envelope_smoothed = uniform_filter1d(envelope, size=int(0.01 * self.sr))
+            
+            # Attack slope within the event (first 20% of event duration)
+            attack_window = max(1, int(0.2 * len(envelope_smoothed)))
+            if len(envelope_smoothed) > attack_window:
+                attack_slope = (np.max(envelope_smoothed[:attack_window]) - 
+                               envelope_smoothed[0]) / attack_window
+            else:
+                attack_slope = 0
+            features['attack_slope'] = attack_slope
+            
+            # 2. PULSE DETECTION - within the event
+            peaks, _ = signal.find_peaks(envelope_smoothed, 
+                                        height=np.percentile(envelope_smoothed, 70),
+                                        distance=int(0.005 * self.sr))  # 5ms minimum between pulses
+            
+            features['pulse_count'] = len(peaks)
+            
+            if len(peaks) > 1:
+                intervals = np.diff(peaks) / self.sr
+                features['pulse_regularity'] = 1.0 / (np.std(intervals) + 1e-6)
+                features['avg_pulse_interval'] = np.mean(intervals)
+                features['pulse_density'] = len(peaks) / features['event_duration']  # pulses per second
+            else:
+                features['pulse_regularity'] = 0
+                features['avg_pulse_interval'] = 0
+                features['pulse_density'] = 0
+            
+            # 3. SPECTRAL FEATURES - of the event
+            S = librosa.feature.melspectrogram(y=event_audio, sr=self.sr, 
+                                             fmin=5500, fmax=15000, n_mels=32, n_fft = 512, hop_length=10, window="hann")
+            S_db = librosa.power_to_db(S, ref=np.max)
+            
+            spectral_centroids = librosa.feature.spectral_centroid(S=S, sr=self.sr)[0]
+            features['tonal_variation'] = np.std(spectral_centroids) / (np.mean(spectral_centroids) + 1e-6)
+            
+            features['dynamic_range'] = np.max(S_db) - np.min(S_db)
+            
+            # Spectral centroid mean (indicates dominant frequency range)
+            features['spectral_centroid_mean'] = np.mean(spectral_centroids)
+            
+        else:
+            # Event too short, return default values
+            features.update(self._get_default_features())
+        
+        return features
+    
+    def _get_default_features(self):
+        """Returns default feature values when no event is detected."""
+        return {
+            'event_start_time': 0,
+            'event_duration': 0,
+            'event_energy': 0,
+            'attack_slope': 0,
+            'pulse_count': 0,
+            'pulse_regularity': 0,
+            'avg_pulse_interval': 0,
+            'pulse_density': 0,
+            'tonal_variation': 0,
+            'dynamic_range': 0,
+            'spectral_centroid_mean': 0
+        }
+    
+    def is_promising_stridulation(self, min_pulses=6, min_attack_slope=0.000001, 
+                                min_regularity=150, min_duration=0.5, max_duration=0.8):
+        """
+        Evaluates if the snippet contains a promising stridulation event.
+        Now analyzes detected events rather than assuming position.
+        
+        Args:
+            min_pulses (int): Minimum number of pulses in the event
+            min_attack_slope (float): Minimum attack slope within the event
+            min_regularity (float): Minimum pulse regularity threshold
+            min_duration (float): Minimum event duration in seconds
+            max_duration (float): Maximum event duration in seconds
+            
+        Returns:
+            bool: True if a promising stridulation event is detected
+        """
+        features = self.extract_stridulation_features()
+        
+        # Check if we have a valid event
+        if features['event_duration'] < min_duration or features['event_duration'] > max_duration:
+            return False
+        
+        score = 0
+        if features['pulse_count'] >= min_pulses:
+            score += 2
+        if features['attack_slope'] > min_attack_slope:
+            score += 1
+        if features['pulse_regularity'] > min_regularity:
+            score += 1
+        if features['pulse_density'] > 10:  # At least 10 pulses per second
+            score += 1
+        if 2000 < features['spectral_centroid_mean'] < 12000:  # Reasonable frequency range
+            score += 1
+            
+        return score >= 4  # Require stronger evidence
+    
+    def analyze_stridulation_features(self, verbose=True):
+        """
+        Comprehensive analysis of stridulation features with event detection.
+        
+        Args:
+            verbose (bool): If True, prints detailed analysis results
+            
+        Returns:
+            tuple: (is_promising, features_dict, events_list)
+        """
+        # First, detect all events
+        events = self.find_audio_events()
+        
+        # Analyze the most promising event
+        features = self.extract_stridulation_features()
+        is_promising = self.is_promising_stridulation()
+        
+        if verbose:
+            print(f"\n--- Stridulation Analysis for snippet at {self.start_time}s ---")
+            print(f"Snippet duration: {len(self.audio)/self.sr:.2f}s")
+            print(f"Detected {len(events)} audio event(s)")
+            
+            for i, (start, end, energy) in enumerate(events):
+                print(f"  Event {i}: {start:.3f}-{end:.3f}s, energy: {energy:.6f}")
+            
+            if events:
+                print(f"\nAnalyzing most energetic event ({features['event_start_time']:.3f}s):")
+                for feature, value in features.items():
+                    if feature not in ['event_start_time', 'event_duration', 'event_energy']:
+                        print(f"  {feature}: {value:.6f}")
+            else:
+                print("\nNo audio events detected in snippet")
+                
+            print(f"\nEvaluation: {'PROMISING' if is_promising else 'UNLIKELY'} stridulation candidate")
+            print("--- End of Analysis ---\n")
+        
+        return is_promising, features, events
+    
+    
+
+
