@@ -384,7 +384,7 @@ class AudioSnippet:
     
 
     
-    def find_audio_events(self, min_event_duration=0.02, threshold_percentile=30):
+    def find_audio_events(self, min_event_duration=0.5, threshold_percentile=25):
         """
         Detects potential audio events (like stridulations) within the snippet.
         Uses energy-based event detection to find regions of interest.
@@ -446,8 +446,7 @@ class AudioSnippet:
         Returns:
             dict: Dictionary with extracted features from the specified event
         """
-        from scipy import signal
-        from scipy.ndimage import uniform_filter1d
+
         
         # Detect events in the snippet
         events = self.find_audio_events()
@@ -491,7 +490,7 @@ class AudioSnippet:
             # 2. PULSE DETECTION - within the event
             peaks, _ = signal.find_peaks(envelope_smoothed, 
                                         height=np.percentile(envelope_smoothed, 70),
-                                        distance=int(0.005 * self.sr))  # 5ms minimum between pulses
+                                        distance=int(0.02 * self.sr))  # 5ms minimum between pulses
             
             features['pulse_count'] = len(peaks)
             
@@ -541,40 +540,44 @@ class AudioSnippet:
         }
     
     def is_promising_stridulation(self, min_pulses=6, min_attack_slope=0.000001, 
-                                min_regularity=150, min_duration=0.5, max_duration=0.8):
+                                 min_regularity=150, min_duration=0.5, max_duration=0.8):
         """
-        Evaluates if the snippet contains a promising stridulation event.
-        Now analyzes detected events rather than assuming position.
-        
-        Args:
-            min_pulses (int): Minimum number of pulses in the event
-            min_attack_slope (float): Minimum attack slope within the event
-            min_regularity (float): Minimum pulse regularity threshold
-            min_duration (float): Minimum event duration in seconds
-            max_duration (float): Maximum event duration in seconds
-            
-        Returns:
-            bool: True if a promising stridulation event is detected
+        Evalúa si el snippet contiene un evento de estridulación prometedor.
+        Ahora analiza los 3 eventos más energéticos.
         """
-        features = self.extract_stridulation_features()
+        events = self.find_audio_events()
         
-        # Check if we have a valid event
-        if features['event_duration'] < min_duration or features['event_duration'] > max_duration:
+        if not events:
             return False
         
-        score = 0
-        if features['pulse_count'] >= min_pulses:
-            score += 2
-        if features['attack_slope'] > min_attack_slope:
-            score += 1
-        if features['pulse_regularity'] > min_regularity:
-            score += 1
-        if features['pulse_density'] > 10:  # At least 10 pulses per second
-            score += 1
-        if 2000 < features['spectral_centroid_mean'] < 12000:  # Reasonable frequency range
-            score += 1
+        # Ordenar eventos por energía y tomar los 3 más energéticos
+        events.sort(key=lambda x: x[2], reverse=True)
+        top_events = events[:8]
+        
+        # Evaluar cada uno de los 3 eventos principales
+        for i, event in enumerate(events):
+            features = self.extract_stridulation_features(event_index=i)
             
-        return score >= 4  # Require stronger evidence
+            # Check si tenemos un evento válido
+            if features['event_duration'] < min_duration or features['event_duration'] > max_duration:
+                continue
+            
+            score = 0
+            if features['pulse_count'] >= min_pulses:
+                score += 2
+            if features['attack_slope'] > min_attack_slope:
+                score += 1
+            if features['pulse_regularity'] > min_regularity:
+                score += 1
+            if features['pulse_density'] > 10:
+                score += 1
+            if 2000 < features['spectral_centroid_mean'] < 12000:
+                score += 1
+                
+            if score >= 4:
+                return True  # CUALQUIERA de los 3 eventos puede activar la detección
+        
+        return False
     
     def analyze_stridulation_features(self, verbose=True):
         """
