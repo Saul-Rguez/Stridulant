@@ -137,7 +137,7 @@ class AudioSnippet:
         sd.wait()
             
 
-    def spectrogram(self, spec_type='mel',n_fft = 256, hop_length = 224, window = "boxcar", n_mels=128):
+    def spectrogram(self, spec_type='mel',n_fft = 256, hop_length = 224, window = "boxcar", n_mels=128, env_smooth = 10):
         """
         Creates and returns a Spectrogram instance based on the current snippet. The 
         spectrogram is generated using one of three types: Mel, FFT, or Hilbert.
@@ -158,7 +158,13 @@ class AudioSnippet:
         of energy from a frequency bin to the adyacent one. The default is boxcar, which has a lot of leakage, 
         but also the best frequency reolution. We have been using that one for power analysis, but others with
         less leakage are possible. Check Librosa documentation to know your options.
-        
+            n_mels (int): number of mels for mel spectrograms. Higher numbers increase the resolution in the
+        frequency domain. Best with powers of 2
+            env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+        the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+        of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+        more smooth lines.
+            
         Returns:
             Spectrogram: A Spectrogram instance containing the generated spectrogram.
         """
@@ -168,8 +174,9 @@ class AudioSnippet:
         if spec_type == 'hilbert':
             analytic_signal = hilbert(self.audio)
             amplitude_envelope = np.abs(analytic_signal)
+            envelope_smoothed = uniform_filter1d(amplitude_envelope, size = int(env_smooth/1000 * self.sr))
 
-            spectrogram_data = amplitude_envelope
+            spectrogram_data = envelope_smoothed
             return Spectrogram(spectrogram_data, self.sr, self.start_time, self.transformed, self.normalized, spec_type='hilbert')
         else:
             if spec_type == 'mel':
@@ -384,7 +391,7 @@ class AudioSnippet:
     
 
     
-    def find_audio_events(self, min_event_duration=0.5, threshold_percentile=25):
+    def find_audio_events(self, min_event_duration=0.2, threshold_percentile=25):
         """
         Extracts stridulation features from a specific detected event.
         
@@ -502,6 +509,35 @@ class AudioSnippet:
                 features['avg_pulse_interval'] = 0
                 features['pulse_density'] = 0
             
+             # DUTY CYCLE: measures pulse sustain
+            if len(peaks) > 0:
+                
+                pulse_threshold = np.percentile(envelope_smoothed, 30)
+                
+                samples_above_threshold = np.sum(envelope_smoothed > pulse_threshold)
+                features['duty_cycle'] = samples_above_threshold / len(envelope_smoothed)
+                
+                pulse_durations = []
+                above_pulse = envelope_smoothed > pulse_threshold
+                
+                in_pulse = False
+                pulse_start = 0
+                for i, is_above in enumerate(above_pulse):
+                    if is_above and not in_pulse:
+                        in_pulse = True
+                        pulse_start = i
+                    elif not is_above and in_pulse:
+                        in_pulse = False
+                        pulse_durations.append(i - pulse_start)
+                
+                if pulse_durations:
+                    features['avg_pulse_duration'] = np.mean(pulse_durations) / self.sr  # en segundos
+                else:
+                    features['avg_pulse_duration'] = 0
+            else:
+                features['duty_cycle'] = 0
+                features['avg_pulse_duration'] = 0
+            
             # 3. SPECTRAL FEATURES - of the event
             S = np.abs(librosa.stft(event_audio, n_fft=512, hop_length=10, window="hann"))
             S_db = librosa.amplitude_to_db(S, ref=np.max)
@@ -536,83 +572,65 @@ class AudioSnippet:
             'pulse_regularity': 0,
             'avg_pulse_interval': 0,
             'pulse_density': 0,
+            'duty_cycle': 0,
+            'avg_pulse_duration': 0,
             'tonal_variation': 0,
             'dynamic_range': 0,
             'spectral_centroid_mean': 0
         }
     
-    def is_promising_stridulation(self, min_pulses = 6, min_regularity = 10, min_duration = 0.5, max_duration = 0.8, sp_range = (5500, 15000)):
+    def is_promising_stridulation(self, min_pulses = 6, min_regularity = 10, min_duration = 0.5, max_duration = 0.8, sustain = 0.5, sp_range = (5500, 15000)):
         """
-        Evaluates if snippet contains promising stridulation based on acoustic features.
+        Evaluates if the audio snippet contains a promising stridulation signal based on 
+        acoustic features. Analyzes all detected events and returns True if ANY event 
+        meets all the stridulation criteria.
         
         Args:
-            min_pulses (int): Minimum number of pulses required
-            min_regularity (float): Minimum pulse regularity (1/std of intervals)
-            min_duration (float): Minimum event duration in seconds
-            max_duration (float): Maximum event duration in seconds  
-            sp_range (tuple): Valid frequency range for spectral centroid (min, max) in Hz
-            
+            min_pulses (int): Minimum number of individual pulses required within the event.
+                              Typical insect stridulations have 6+ distinct pulses.
+                              
+            min_regularity (float): Minimum pulse regularity score (1/standard_deviation of intervals).
+                                   Higher values indicate more consistent timing between pulses.
+                                   Values >10 suggest rhythmic, organized patterns.
+                                   
+            min_duration (float): Minimum event duration in seconds. Filters out very brief 
+                                 noises that are unlikely to be biological signals.
+                                 
+            max_duration (float): Maximum event duration in seconds. Filters out very long 
+                                 continuous sounds that may be environmental noise.
+                                 
+            sustain (float): Minimum duty cycle ratio (0-1) indicating what fraction of the 
+                            event duration contains actual sound vs silence. 
+                            - Values near 0.2-0.4: Pulsed sounds with clear gaps
+                            - Values near 0.6-0.8: More continuous, sustained sounds
+                            - Helps distinguish true stridulations from isolated clicks
+                            
+            sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
+                             Filters events based on dominant frequency content.
+                             Typical insect stridulations fall within 5500-15000 Hz.
+        
         Returns:
-            bool: True if any event meets all stridulation criteria
+            bool: True if ANY detected event meets ALL stridulation criteria, False otherwise.
         """
         events = self.find_audio_events()
         
         if not events:
             return False
         
-        
-        # Evaluar cada uno de los 3 eventos principales
         for i, event in enumerate(events):
             features = self.extract_stridulation_features(event_index=i)
-            
-            # Check si tenemos un evento válido
+
             if features['event_duration'] < min_duration or features['event_duration'] > max_duration:
                 continue
             
             if (features['pulse_count'] >= min_pulses and
-                features['pulse_regularity'] > min_regularity and  # Más realista
-                sp_range[0] < features['spectral_centroid_mean'] < sp_range [1]):
+                features['pulse_regularity'] > min_regularity and  
+                sp_range[0] < features['spectral_centroid_mean'] < sp_range [1] and
+                features['duty_cycle'] > sustain):
                 return True 
         
         return False
     
-    def analyze_stridulation_features(self, verbose=True):
-        """
-        Comprehensive analysis of stridulation features with event detection.
-        
-        Args:
-            verbose (bool): If True, prints detailed analysis results
-            
-        Returns:
-            tuple: (is_promising, features_dict, events_list)
-        """
-        # First, detect all events
-        events = self.find_audio_events()
-        
-        # Analyze the most promising event
-        features = self.extract_stridulation_features()
-        is_promising = self.is_promising_stridulation()
-        
-        if verbose:
-            print(f"\n--- Stridulation Analysis for snippet at {self.start_time}s ---")
-            print(f"Snippet duration: {len(self.audio)/self.sr:.2f}s")
-            print(f"Detected {len(events)} audio event(s)")
-            
-            for i, (start, end, energy) in enumerate(events):
-                print(f"  Event {i}: {start:.3f}-{end:.3f}s, energy: {energy:.6f}")
-            
-            if events:
-                print(f"\nAnalyzing most energetic event ({features['event_start_time']:.3f}s):")
-                for feature, value in features.items():
-                    if feature not in ['event_start_time', 'event_duration', 'event_energy']:
-                        print(f"  {feature}: {value:.6f}")
-            else:
-                print("\nNo audio events detected in snippet")
-                
-            print(f"\nEvaluation: {'PROMISING' if is_promising else 'UNLIKELY'} stridulation candidate")
-            print("--- End of Analysis ---\n")
-        
-        return is_promising, features, events
     
     
 
