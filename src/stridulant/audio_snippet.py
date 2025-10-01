@@ -386,17 +386,16 @@ class AudioSnippet:
     
     def find_audio_events(self, min_event_duration=0.5, threshold_percentile=25):
         """
-        Detects potential audio events (like stridulations) within the snippet.
-        Uses energy-based event detection to find regions of interest.
+        Extracts stridulation features from a specific detected event.
         
         Args:
-            min_event_duration (float): Minimum duration of an event in seconds
-            threshold_percentile (float): Percentile for energy threshold (0-100)
+            pulse_dist (float): Minimum time between pulses in seconds (default: 0.02 = 20ms)
+            event_index (int): Index of event to analyze (0 = most energetic)
             
         Returns:
-            list: List of tuples (start_time, end_time, max_energy) for each detected event
+            dict: Dictionary with extracted features
         """
-        
+            
         # Calculate energy envelope
         envelope = np.abs(signal.hilbert(self.audio))
         envelope_smoothed = uniform_filter1d(envelope, size=int(0.01 * self.sr))
@@ -422,7 +421,6 @@ class AudioSnippet:
                 # Event ends
                 in_event = False
                 event_end = i
-                event_duration = (event_end - event_start) / self.sr
                 
                 # Only keep events longer than minimum duration
                 if (event_end - event_start) >= min_event_samples:
@@ -435,7 +433,7 @@ class AudioSnippet:
         
         return events
     
-    def extract_stridulation_features(self, event_index=0):
+    def extract_stridulation_features(self, pulse_dist = 0.02, event_index = 0):
         """
         Extracts stridulation features from a specific detected event within the snippet.
         If no event_index specified, analyzes the most prominent event.
@@ -490,7 +488,7 @@ class AudioSnippet:
             # 2. PULSE DETECTION - within the event
             peaks, _ = signal.find_peaks(envelope_smoothed, 
                                         height=np.percentile(envelope_smoothed, 70),
-                                        distance=int(0.02 * self.sr))  # 5ms minimum between pulses
+                                        distance=int(pulse_dist * self.sr))  
             
             features['pulse_count'] = len(peaks)
             
@@ -505,9 +503,8 @@ class AudioSnippet:
                 features['pulse_density'] = 0
             
             # 3. SPECTRAL FEATURES - of the event
-            S = librosa.feature.melspectrogram(y=event_audio, sr=self.sr, 
-                                             fmin=5500, fmax=15000, n_mels=32, n_fft = 512, hop_length=10, window="hann")
-            S_db = librosa.power_to_db(S, ref=np.max)
+            S = np.abs(librosa.stft(event_audio, n_fft=512, hop_length=10, window="hann"))
+            S_db = librosa.amplitude_to_db(S, ref=np.max)
             
             spectral_centroids = librosa.feature.spectral_centroid(S=S, sr=self.sr)[0]
             features['tonal_variation'] = np.std(spectral_centroids) / (np.mean(spectral_centroids) + 1e-6)
@@ -524,7 +521,12 @@ class AudioSnippet:
         return features
     
     def _get_default_features(self):
-        """Returns default feature values when no event is detected."""
+        """
+        Returns default feature values when no event is detected.
+        
+        Provides consistent output structure for downstream processing
+        and prevents errors in feature analysis pipelines.
+        """
         return {
             'event_start_time': 0,
             'event_duration': 0,
@@ -539,20 +541,25 @@ class AudioSnippet:
             'spectral_centroid_mean': 0
         }
     
-    def is_promising_stridulation(self, min_pulses=6, min_attack_slope=0.000001, 
-                                 min_regularity=150, min_duration=0.5, max_duration=0.8):
+    def is_promising_stridulation(self, min_pulses = 6, min_regularity = 10, min_duration = 0.5, max_duration = 0.8, sp_range = (5500, 15000)):
         """
-        Evalúa si el snippet contiene un evento de estridulación prometedor.
-        Ahora analiza los 3 eventos más energéticos.
+        Evaluates if snippet contains promising stridulation based on acoustic features.
+        
+        Args:
+            min_pulses (int): Minimum number of pulses required
+            min_regularity (float): Minimum pulse regularity (1/std of intervals)
+            min_duration (float): Minimum event duration in seconds
+            max_duration (float): Maximum event duration in seconds  
+            sp_range (tuple): Valid frequency range for spectral centroid (min, max) in Hz
+            
+        Returns:
+            bool: True if any event meets all stridulation criteria
         """
         events = self.find_audio_events()
         
         if not events:
             return False
         
-        # Ordenar eventos por energía y tomar los 3 más energéticos
-        events.sort(key=lambda x: x[2], reverse=True)
-        top_events = events[:8]
         
         # Evaluar cada uno de los 3 eventos principales
         for i, event in enumerate(events):
@@ -562,20 +569,10 @@ class AudioSnippet:
             if features['event_duration'] < min_duration or features['event_duration'] > max_duration:
                 continue
             
-            score = 0
-            if features['pulse_count'] >= min_pulses:
-                score += 2
-            if features['attack_slope'] > min_attack_slope:
-                score += 1
-            if features['pulse_regularity'] > min_regularity:
-                score += 1
-            if features['pulse_density'] > 10:
-                score += 1
-            if 2000 < features['spectral_centroid_mean'] < 12000:
-                score += 1
-                
-            if score >= 4:
-                return True  # CUALQUIERA de los 3 eventos puede activar la detección
+            if (features['pulse_count'] >= min_pulses and
+                features['pulse_regularity'] > min_regularity and  # Más realista
+                sp_range[0] < features['spectral_centroid_mean'] < sp_range [1]):
+                return True 
         
         return False
     
