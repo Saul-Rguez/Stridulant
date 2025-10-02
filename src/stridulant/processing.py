@@ -276,3 +276,107 @@ def highpass_filter(audio, sr, cutoff=3000, order=8):
         return filtered_audio
     except Exception as e:
         raise ValueError(f"Error applying high-pass filter: {e}")
+        
+
+def quick_scan(audio_path, snippet_duration=2.0, overlap=0, 
+               min_pulses=6, min_regularity=10, min_duration=0.5,
+               max_duration=1, sustain=0.5, pulse_dist=20,
+               sp_range=(5500, 15000), enable_coupled=True,
+               coupled_min_duration=0.2, coupled_gap=1):
+    """
+    Scans an entire audio file for stridulation events using a sliding window approach.
+    
+    Args:
+        audio_path (str): Path to the audio file to analyze
+        snippet_duration (float): Duration of each analysis window in seconds (default: 2.0)
+        overlap (float): Overlap between consecutive snippets in seconds (default: 0)
+        min_pulses (int): Minimum pulses for stridulation detection
+        min_regularity (float): Minimum pulse regularity score
+        min_duration (float): Minimum event duration for strong events
+        max_duration (float): Maximum event duration
+        sustain (float): Minimum duty cycle ratio
+        pulse_dist (float): Minimum distance between pulses in milliseconds
+        sp_range (tuple): Valid frequency range for spectral centroid
+        enable_coupled (bool): Enable coupled events detection
+        coupled_min_duration (float): Minimum duration for coupled events
+        coupled_gap (float): Maximum gap between coupled events
+        
+    Returns:
+        tuple: (candidates, features)
+            - candidates: List of absolute timestamps in seconds
+            - features: List of feature dictionaries for each candidate
+    """
+    try:
+        audio, sr = load_audio(audio_path)
+    except Exception as e:
+        print(f" Error loading audio file: {e}")
+        return [], []
+    
+    total_duration = len(audio) / sr
+    step_size = snippet_duration - overlap
+    total_snippets = int((total_duration - snippet_duration) / step_size) + 1
+    
+    print(f" Scanning {total_duration:.1f}s of audio...")
+    print(f"   Snippets: {total_snippets}, Step: {step_size:.1f}s")
+    
+    candidates = []     
+    features_list = []   
+    
+    with tqdm(total=total_snippets, desc="Processing", unit="snippet", 
+              ncols=100, position=0, leave=True) as pbar:
+        
+        start_time = 0
+        snippet_count = 0
+        
+        while start_time + snippet_duration <= total_duration:
+            # Create and analyze snippet
+            snippet = create_snippet(audio, sr, start_time, snippet_duration)
+            snippet.normalize()
+            
+            # Detect stridulation with all parameters
+            features = snippet.is_stridulation(
+                min_pulses=min_pulses,
+                min_regularity=min_regularity,
+                min_duration=min_duration,
+                max_duration=max_duration,
+                sustain=sustain,
+                pulse_dist=pulse_dist,
+                sp_range=sp_range,
+                enable_coupled=enable_coupled,
+                coupled_min_duration=coupled_min_duration,
+                coupled_gap=coupled_gap
+            )
+            
+            if features:
+                absolute_time = start_time + features['event_start_time']
+                
+
+                enriched_features = {
+                    'absolute_timestamp': absolute_time,
+                    'snippet_context': {
+                        'snippet_start': start_time,
+                        'snippet_duration': snippet_duration,
+                        'event_position_in_snippet': features['event_start_time']
+                    },
+                    'features': features  
+                }
+                
+           
+                candidates.append(absolute_time)
+                features_list.append(enriched_features)
+                
+            
+
+            start_time += step_size
+            snippet_count += 1
+            pbar.update(1)
+    
+
+    if candidates:
+        print(f"\n Found {len(candidates)} candidates")
+
+    else:
+        print(f"\n No candidates found")
+    
+    return candidates, features_list
+    

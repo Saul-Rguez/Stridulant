@@ -163,7 +163,7 @@ class AudioSnippet:
             env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
         the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
         of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
-        more smooth lines.
+        smoother lines.
             
         Returns:
             Spectrogram: A Spectrogram instance containing the generated spectrogram.
@@ -391,17 +391,24 @@ class AudioSnippet:
     
 
     
-    def find_audio_events(self, min_event_duration=0.2, threshold_percentile=25):
+    def find_events(self, min_event_duration=0.2, threshold_percentile=25):
         """
-        Extracts stridulation features from a specific detected event.
+        Detects audio events based on energy envelope thresholding.
+        
+        Identifies regions in the audio signal where the energy envelope exceeds
+        a specified percentile threshold and meets minimum duration requirements.
         
         Args:
-            pulse_dist (float): Minimum time between pulses in seconds (default: 0.02 = 20ms)
-            event_index (int): Index of event to analyze (0 = most energetic)
-            
+            min_event_duration (float): Minimum duration of events in seconds (default: 0.2)
+            threshold_percentile (float): Percentile value for energy threshold (0-100) (default: 25)
+                
         Returns:
-            dict: Dictionary with extracted features
-        """
+            list: List of tuples containing event information, where each tuple is:
+                  (start_time, end_time, max_energy)
+                  - start_time: Event start time in seconds
+                  - end_time: Event end time in seconds
+                  - max_energy: Maximum energy value during the event
+         """
             
         # Calculate energy envelope
         envelope = np.abs(signal.hilbert(self.audio))
@@ -440,33 +447,48 @@ class AudioSnippet:
         
         return events
     
-    def extract_stridulation_features(self, pulse_dist = 0.02, event_index = 0):
+    def extract_features(self, event, pulse_dist = 20):
         """
-        Extracts stridulation features from a specific detected event within the snippet.
-        If no event_index specified, analyzes the most prominent event.
+        Extracts features from a specific audio event.
+        
+        Analyzes the acoustic properties of a detected event to extract features
+        useful for stridulation identification, including temporal patterns, 
+        spectral characteristics, and energy distribution.
         
         Args:
-            event_index (int): Index of the event to analyze (default: 0 = most energetic)
-            
+            event (tuple): Audio event tuple (start_time, end_time, max_energy) in seconds
+            pulse_dist (float): Minimum time between detectable pulses in milliseconds. 
+                               Must be > 0. Controls pulse detection sensitivity:
+                               - Lower values (5-10ms): Detect rapid pulses, risk false positives
+                               - Higher values (20-30ms): More conservative, may miss fast sequences
+                               Typical insect stridulations work well with 10-20ms.
+                               
         Returns:
-            dict: Dictionary with extracted features from the specified event
-        """
-
-        
-        # Detect events in the snippet
-        events = self.find_audio_events()
-        
-        if not events:
-            # No events detected, return default features
-            return self._get_default_features()
-        
-        # Sort events by energy (most energetic first) and select the requested one
-        events.sort(key=lambda x: x[2], reverse=True)
-        
-        if event_index >= len(events):
-            event_index = 0  # Fall back to most energetic event
+            dict: Dictionary containing extracted acoustic features including:
+                - event_start_time (float): Start time of the event in seconds
+                - event_duration (float): Duration of the event in seconds  
+                - event_energy (float): Maximum energy within the event
+                - pulse_count (int): Number of detected pulses
+                - pulse_regularity (float): Rhythm consistency (1/std of intervals)
+                - avg_pulse_interval (float): Mean time between pulses in seconds
+                - pulse_density (float): Pulses per second
+                - duty_cycle (float): Fraction of event duration containing sound (0-1)
+                - avg_pulse_duration (float): Mean pulse duration in seconds
+                - spectral_centroid_mean (float): Dominant frequency in Hz
+                - tonal_variation (float): Frequency stability (std/mean of centroid)
+                - dynamic_range (float): Spectral contrast in dB
+                - attack_slope (float): Amplitude rise rate at event onset
+                
+        Raises:
+            ValueError: If pulse_dist <= 0 (physically impossible separation)
             
-        event_start, event_end, event_energy = events[event_index]
+        Note:
+            The function uses Hilbert envelope analysis for temporal features and
+            STFT-based spectral analysis for frequency characteristics. Pulse detection
+            requires minimum separation to avoid multiple detections of the same acoustic event.
+        """
+      
+        event_start, event_end, event_energy = event
         
         # Convert times to sample indices
         start_sample = int(event_start * self.sr)
@@ -495,7 +517,7 @@ class AudioSnippet:
             # 2. PULSE DETECTION - within the event
             peaks, _ = signal.find_peaks(envelope_smoothed, 
                                         height=np.percentile(envelope_smoothed, 70),
-                                        distance=int(pulse_dist * self.sr))  
+                                        distance=int(pulse_dist/1000 * self.sr))  
             
             features['pulse_count'] = len(peaks)
             
@@ -579,59 +601,103 @@ class AudioSnippet:
             'spectral_centroid_mean': 0
         }
     
-    def is_promising_stridulation(self, min_pulses = 6, min_regularity = 10, min_duration = 0.5, max_duration = 0.8, sustain = 0.5, sp_range = (5500, 15000)):
-        """
-        Evaluates if the audio snippet contains a promising stridulation signal based on 
-        acoustic features. Analyzes all detected events and returns True if ANY event 
-        meets all the stridulation criteria.
-        
-        Args:
-            min_pulses (int): Minimum number of individual pulses required within the event.
-                              Typical insect stridulations have 6+ distinct pulses.
+    def is_stridulation(self, min_pulses=6, min_regularity=10, min_duration=0.5, 
+                    max_duration=1, sustain=0.5, pulse_dist=20, 
+                    sp_range=(5500, 15000), enable_coupled=True, coupled_min_duration=0.22, coupled_gap=0.6):
+         """
+         Evaluates if the audio snippet contains a promising stridulation signal based on 
+         acoustic features. Analyzes all detected events and returns features if ANY event 
+         meets all the stridulation criteria.
+         
+         This function implements a two-stage detection strategy:
+         1. First looks for strong individual events that meet all criteria including normal duration
+         2. If no strong events found, looks for pairs of weak consecutive events that 
+            together form a valid stridulation pattern, using relaxed duration criteria
+         
+         Args:
+             min_pulses (int): Minimum number of individual pulses required within the event.
+                               Typical insect stridulations have 6+ distinct pulses.
+                               
+             min_regularity (float): Minimum pulse regularity score (1/standard_deviation of intervals).
+                                    Higher values indicate more consistent timing between pulses.
+                                    Values >10 suggest rhythmic, organized patterns.
+                                    
+             min_duration (float): Minimum event duration in seconds for strong individual events.
+                                  Use 0 for no minimum.
+                                  
+             max_duration (float/None): Maximum event duration in seconds. Use None for no maximum.
+                                       
+             sustain (float): Minimum duty cycle ratio (0-1) indicating what fraction of the 
+                             event duration contains actual sound.
+                             
+             pulse_dist (float): Minimum distance between pulses in milliseconds.
+                                 
+             sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
                               
-            min_regularity (float): Minimum pulse regularity score (1/standard_deviation of intervals).
-                                   Higher values indicate more consistent timing between pulses.
-                                   Values >10 suggest rhythmic, organized patterns.
+             enable_coupled (bool): Whether to enable detection of coupled weak events.
                                    
-            min_duration (float): Minimum event duration in seconds. Filters out very brief 
-                                 noises that are unlikely to be biological signals.
-                                 
-            max_duration (float): Maximum event duration in seconds. Filters out very long 
-                                 continuous sounds that may be environmental noise.
-                                 
-            sustain (float): Minimum duty cycle ratio (0-1) indicating what fraction of the 
-                            event duration contains actual sound vs silence. 
-                            - Values near 0.2-0.4: Pulsed sounds with clear gaps
-                            - Values near 0.6-0.8: More continuous, sustained sounds
-                            - Helps distinguish true stridulations from isolated clicks
-                            
-            sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
-                             Filters events based on dominant frequency content.
-                             Typical insect stridulations fall within 5500-15000 Hz.
-        
-        Returns:
-            bool: True if ANY detected event meets ALL stridulation criteria, False otherwise.
-        """
-        events = self.find_audio_events()
-        
-        if not events:
-            return False
-        
-        for i, event in enumerate(events):
-            features = self.extract_stridulation_features(event_index=i)
-
-            if features['event_duration'] < min_duration or features['event_duration'] > max_duration:
-                continue
-            
-            if (features['pulse_count'] >= min_pulses and
-                features['pulse_regularity'] > min_regularity and  
-                sp_range[0] < features['spectral_centroid_mean'] < sp_range [1] and
-                features['duty_cycle'] > sustain):
-                return True 
-        
-        return False
-    
-    
-    
-
-
+             coupled_min_duration (float): Minimum duration for events in coupled detection.
+                                          Allows shorter events to be considered only when
+                                          looking for coupled pairs.
+                                          
+             coupled_gap (float): Maximum time gap between consecutive weak events in seconds.
+         
+         Returns:
+             dict/False: Features dictionary if stridulation found, False otherwise.
+         """
+         events = self.find_events()
+         
+         if not events:
+             return False
+         
+         weak_candidates = []
+         
+         for event in events:
+             features = self.extract_features(event, pulse_dist)
+             
+             # Check spectral characteristics, regularity and sustain FIRST
+             spectral_ok = sp_range[0] < features['spectral_centroid_mean'] < sp_range[1]
+             regularity_ok = features['pulse_regularity'] > min_regularity
+             sustain_ok = features['duty_cycle'] > sustain
+             
+             if not (spectral_ok and regularity_ok and sustain_ok):
+                 continue
+             
+             # STAGE 1: Strong individual events (with NORMAL duration filtering)
+             if features['pulse_count'] >= min_pulses:
+                 # Apply normal duration filters for strong events
+                 if min_duration > 0 and features['event_duration'] < min_duration:
+                     continue
+                 if max_duration is not None and features['event_duration'] > max_duration:
+                     continue
+                 return features
+             
+             # STAGE 2: Weak events for coupling (with RELAXED duration filtering)
+             elif enable_coupled and min_pulses - 2 <= features['pulse_count'] < min_pulses:
+                 # Apply relaxed duration filters for weak events
+                 if features['event_duration'] < coupled_min_duration:
+                     continue
+                 if max_duration is not None and features['event_duration'] > max_duration:
+                     continue
+                 weak_candidates.append((
+                     features['event_start_time'],
+                     features['event_start_time'] + features['event_duration'],
+                     features
+                 ))
+         
+         # STAGE 3: Coupled events search (only if no strong events found)
+         if enable_coupled and len(weak_candidates) >= 2:
+             weak_candidates.sort(key=lambda x: x[0])
+             
+             for i in range(len(weak_candidates) - 1):
+                 end_time_i = weak_candidates[i][1]
+                 start_time_j = weak_candidates[i+1][0]
+                 features_i = weak_candidates[i][2]
+                 features_j = weak_candidates[i+1][2]
+                 
+                 time_gap = start_time_j - end_time_i
+                 if 0 <= time_gap <= coupled_gap:
+                     # Return the more energetic event of the coupled pair
+                     return features_i if features_i['event_energy'] > features_j['event_energy'] else features_j
+         
+         return False
