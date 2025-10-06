@@ -278,6 +278,38 @@ def highpass_filter(audio, sr, cutoff=3000, order=8):
         raise ValueError(f"Error applying high-pass filter: {e}")
         
 
+def lowpass_filter(audio, sr, cutoff=5000, order=8):
+    """
+    Applies a low-pass Butterworth filter to the input audio signal.
+
+    Args:
+        audio (np.ndarray): Input audio signal.
+        sr (int): Sampling rate of the audio.
+        cutoff (float): Cutoff frequency in Hz. Default is 5000 Hz.
+        order (int): Filter order. Default is 8 (48 dB/octave roll-off).
+
+    Returns:
+        np.ndarray: Filtered audio signal.
+    
+    Raises:
+        ValueError: If input parameters are invalid or filtering fails.
+    """
+    try:
+        nyq = 0.5 * sr
+        normal_cutoff = cutoff / nyq
+        
+        if normal_cutoff >= 1.0:
+            raise ValueError("Cutoff frequency must be less than Nyquist rate.")
+        if normal_cutoff <= 0.0:
+            raise ValueError("Cutoff frequency must be greater than 0.")
+
+        b, a = butter(order, normal_cutoff, btype='lowpass', analog=False)
+        filtered_audio = filtfilt(b, a, audio, axis=0)
+        return filtered_audio
+    except Exception as e:
+        raise ValueError(f"Error applying low-pass filter: {e}")
+        
+
 def quick_scan(audio_path, snippet_duration=2.0, overlap=0, 
                min_pulses=6, min_regularity=10, min_duration=0.5,
                max_duration=1, sustain=0.5, pulse_dist=20,
@@ -316,6 +348,26 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
     step_size = snippet_duration - overlap
     total_snippets = int((total_duration - snippet_duration) / step_size) + 1
     
+    audio_dir = os.path.dirname(audio_path)
+    audio_filename = os.path.basename(audio_path)
+    base_name = os.path.splitext(audio_filename)[0]
+    
+
+    base_folder = os.path.join(audio_dir, base_name)
+    snippets_folder = os.path.join(base_folder, "snippets")
+    spectrograms_folder = os.path.join(base_folder, "spectrograms")
+    
+
+    try:
+        os.makedirs(snippets_folder, exist_ok=True)
+        os.makedirs(spectrograms_folder, exist_ok=True)
+        print(f"✓ Carpetas creadas en: {base_folder}")
+    
+    except OSError as e:
+        print(f"✗ Error creando carpetas: {e}")
+
+    
+
     print(f" Scanning {total_duration:.1f}s of audio...")
     print(f"   Snippets: {total_snippets}, Step: {step_size:.1f}s")
     
@@ -361,11 +413,20 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
                     'features': features  
                 }
                 
-           
-                candidates.append(absolute_time)
-                features_list.append(enriched_features)
+                is_duplicate = False
+                if candidates:
+                    if round(candidates[-1], 1) == round(absolute_time, 1):
+                        is_duplicate = True
                 
-            
+                if not is_duplicate:
+                    candidates.append(absolute_time)
+                    features_list.append(enriched_features)
+                    snippet.save(base_name, snippets_folder, verbose = False)
+                    spectrogram = snippet.spectrogram("fft",n_fft=512,hop_length=10,window="hann")
+                    spectrogram.save_img(base_name, spectrograms_folder,color = "jet", with_labels=True, verbose=False)
+                    spectrogram= snippet.spectrogram("hilbert", env_smooth = 10)
+                    spectrogram.save_img(base_name, spectrograms_folder,with_labels=True, verbose=False)
+                    
 
             start_time += step_size
             snippet_count += 1
@@ -376,7 +437,7 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
         print(f"\n Found {len(candidates)} candidates")
 
     else:
-        print(f"\n No candidates found")
+        print("\n No candidates found")
     
     return candidates, features_list
     
