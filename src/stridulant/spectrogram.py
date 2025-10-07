@@ -116,7 +116,35 @@ class Spectrogram:
             plt.tight_layout(pad=0)
             plt.show()
 
-    def save_img(self, source_name, output_dir,color = "inferno", with_labels=False, verbose=True):
+    def plot_events(self, detected_events=None):
+        """
+        Plots the Hilbert envelope with percentile thresholds for event detection.
+        This method is only available for 'hilbert' type spectrograms.
+    
+        Args:
+            percentiles (list): List of percentiles to display as thresholds (0-100).
+            detected_events (list): List of events (start_time, end_time, energy) to mark on the plot.
+        """
+    
+        # Create time axis
+        t = np.arange(len(self.spectrogram_data)) / self.sr
+    
+        # Plot the smoothed envelope
+        plt.plot(t, self.spectrogram_data, label='Smooth envelope', color='blue', alpha=0.7, linewidth=1)
+        
+        for i, (start, end, energy) in enumerate(detected_events):
+            plt.axvspan(start-0.01, end+0.01, alpha=0.2, color='red', label='Event' if i == 0 else "")
+
+        plt.xlabel('Time (s)')
+        plt.ylabel('Amplitud')
+        plt.title('Hilbert envelope with events')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
+    
+
+    def save_img(self, source_name, output_dir,color = "inferno", with_labels=False, verbose=True, events = False):
         """
         Saves the spectrogram as an image file.
 
@@ -132,27 +160,70 @@ class Spectrogram:
         norm_label = "_norm" if self.normalized else ""
         file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}_.png"
         output_path = os.path.join(output_dir, file_name)
-
-        if self.spec_type == 'hilbert':
+        
+        if events:
             plt.figure(figsize=(20, 8)) 
+            # Create time axis
             t = np.arange(len(self.spectrogram_data)) / self.sr
-            plt.subplot(2, 1, 1)
-            plt.title("Amplitude-modulated Signal (Hilbert Transform)")
-            plt.ylabel("Amplitude")
-            plt.plot(t, self.spectrogram_data, label='Amplitude Envelope', color='C0')
-
-            analytic_signal = hilbert(self.spectrogram_data)
-            instantaneous_phase = np.unwrap(np.angle(analytic_signal))
-            instantaneous_frequency = np.diff(instantaneous_phase) / (2.0 * np.pi) * self.sr
-
-            plt.subplot(2, 1, 2)
-            plt.xlabel("Time (s)")
-            plt.ylabel("Frequency (Hz)")
-            plt.plot(t[1:], instantaneous_frequency, label='Instantaneous Frequency', color='C2')
+        
+            # Plot the smoothed envelope
+            plt.plot(t, self.spectrogram_data, label='Smooth envelope', color='blue', alpha=0.7, linewidth=1)
+            
+            # Mark detected events if provided
+            for i, (start, end, energy) in enumerate(events):
+                plt.axvspan(start-0.01, end+0.01, alpha=0.2, color='red', label='Event' if i == 0 else "")
+    
+            plt.xlabel('Time (s)')
+            plt.ylabel('Amplitud')
+            plt.title('Hilbert envelope with events')
             plt.legend()
-            plt.tight_layout()        
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
             plt.savefig(output_path, bbox_inches='tight', pad_inches=0.5)
             plt.close()
+
+        if self.spec_type == 'hilbert':
+            if events:
+                plt.figure(figsize=(20, 8)) 
+                # Create time axis
+                t = np.arange(len(self.spectrogram_data)) / self.sr
+            
+                # Plot the smoothed envelope
+                plt.plot(t, self.spectrogram_data, label='Smooth envelope', color='blue', alpha=0.7, linewidth=1)
+                
+                # Mark detected events if provided
+                for i, (start, end, energy) in enumerate(events):
+                    plt.axvspan(start-0.01, end+0.01, alpha=0.2, color='red', label='Event' if i == 0 else "")
+        
+                plt.xlabel('Time (s)')
+                plt.ylabel('Amplitud')
+                plt.title('Hilbert envelope with events')
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                plt.savefig(output_path, bbox_inches='tight', pad_inches=0.5)
+                plt.close()
+                
+            else:
+                plt.figure(figsize=(20, 8)) 
+                t = np.arange(len(self.spectrogram_data)) / self.sr
+                plt.subplot(2, 1, 1)
+                plt.title("Amplitude-modulated Signal (Hilbert Transform)")
+                plt.ylabel("Amplitude")
+                plt.plot(t, self.spectrogram_data, label='Amplitude Envelope', color='C0')
+    
+                analytic_signal = hilbert(self.spectrogram_data)
+                instantaneous_phase = np.unwrap(np.angle(analytic_signal))
+                instantaneous_frequency = np.diff(instantaneous_phase) / (2.0 * np.pi) * self.sr
+    
+                plt.subplot(2, 1, 2)
+                plt.xlabel("Time (s)")
+                plt.ylabel("Frequency (Hz)")
+                plt.plot(t[1:], instantaneous_frequency, label='Instantaneous Frequency', color='C2')
+                plt.legend()
+                plt.tight_layout()        
+                plt.savefig(output_path, bbox_inches='tight', pad_inches=0.5)
+                plt.close()
 
             if verbose:
                 print(f"Saved spectrogram to '{output_path}'")

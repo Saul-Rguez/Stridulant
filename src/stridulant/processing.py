@@ -431,7 +431,8 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
                     spectrogram = snippet.spectrogram("fft",n_fft=512,hop_length=10,window="hann")
                     spectrogram.save_img(base_name, spectrograms_folder,color = "jet", with_labels=True, verbose=False)
                     spectrogram= snippet.spectrogram("hilbert", env_smooth)
-                    spectrogram.save_img(base_name, spectrograms_folder,with_labels=True, verbose=False)
+                    event=[[float(features["event_start_time"]),float(features["event_start_time"])+float(features["event_duration"]),float(features["event_energy"])]]
+                    spectrogram.save_img(base_name, spectrograms_folder,with_labels=True, verbose=False, events = event)
                     
 
             start_time += step_size
