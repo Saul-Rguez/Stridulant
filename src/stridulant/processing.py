@@ -367,10 +367,10 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
     try:
         os.makedirs(snippets_folder, exist_ok=True)
         os.makedirs(spectrograms_folder, exist_ok=True)
-        print(f"✓ Carpetas creadas en: {base_folder}")
+        print(f"Folders created in: {base_folder}")
     
     except OSError as e:
-        print(f"✗ Error creando carpetas: {e}")
+        print(f"Could not create folders: {e}")
 
     
 
@@ -448,3 +448,103 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
     
     return candidates, features_list
     
+
+def cavitation_scan(audio_path, snippet_duration=2.0, overlap=0, min_event_duration=0.0005, threshold_percentile=80, env_smooth = 1, pulse_dist=1):
+    try:
+        audio, sr = load_audio(audio_path)
+    except Exception as e:
+        print(f" Error loading audio file: {e}")
+        return [], []
+    
+    total_duration = len(audio) / sr
+    step_size = snippet_duration - overlap
+    total_snippets = int((total_duration - snippet_duration) / step_size) + 1
+    
+    audio_dir = os.path.dirname(audio_path)
+    audio_filename = os.path.basename(audio_path)
+    base_name = os.path.splitext(audio_filename)[0]
+    
+
+    base_folder = os.path.join(audio_dir, base_name)
+    snippets_folder = os.path.join(base_folder, "snippets")
+    spectrograms_folder = os.path.join(base_folder, "spectrograms")
+    
+
+    try:
+        os.makedirs(snippets_folder, exist_ok=True)
+        os.makedirs(spectrograms_folder, exist_ok=True)
+        print(f"Folders created in: {base_folder}")
+    
+    except OSError as e:
+        print(f"Could not create folders: {e}")
+
+    print(f" Scanning {total_duration:.1f}s of audio...")
+    print(f"   Snippets: {total_snippets}, Step: {step_size:.1f}s")
+    
+    candidates = []     
+    features_list = []   
+    
+    with tqdm(total=total_snippets, desc="Processing", unit="snippet", 
+              ncols=100, position=0, leave=True) as pbar:
+        
+        start_time = 0
+        snippet_count = 0
+        
+        while start_time + snippet_duration <= total_duration:
+            # Create and analyze snippet
+            snippet = create_snippet(audio, sr, start_time, snippet_duration)
+            snippet.normalize()
+            
+        
+            # Detect cavitation with all parameters
+            features = snippet.is_cavitation(
+                min_event_duration = min_event_duration,
+                threshold_percentile = threshold_percentile,
+                pulse_dist=pulse_dist,
+                env_smooth = env_smooth
+            )
+            
+            if features:
+                absolute_time = start_time + features['event_start_time']
+                
+
+                enriched_features = {
+                    'absolute_timestamp': absolute_time,
+                    'snippet_context': {
+                        'snippet_start': start_time,
+                        'snippet_duration': snippet_duration,
+                        'event_position_in_snippet': features['event_start_time']
+                    },
+                    'features': features  
+                }
+                
+                is_duplicate = False
+                if candidates:
+                    if round(candidates[-1], 1) == round(absolute_time, 1):
+                        is_duplicate = True
+                
+                if not is_duplicate:
+                    candidates.append(absolute_time)
+                    features_list.append(enriched_features)
+                    snippet.save(base_name, snippets_folder, verbose = False)
+                    spectrogram = snippet.spectrogram("fft",n_fft=128,hop_length=4,window="hann")
+                    spectrogram.save_img(base_name, spectrograms_folder,color = "jet", with_labels=True, verbose=False)
+                    spectrogram= snippet.spectrogram("hilbert", env_smooth)
+                    event=[[float(features["event_start_time"]),float(features["event_start_time"])+float(features["event_duration"]),float(features["event_energy"])]]
+                    spectrogram.save_img(base_name, spectrograms_folder,with_labels=True, verbose=False, events = event)
+                    
+
+            start_time += step_size
+            snippet_count += 1
+            pbar.update(1)
+    
+
+    if candidates:
+        print(f"\n Found {len(candidates)} candidates")
+
+    else:
+        print("\n No candidates found")
+    
+    return candidates, features_list
+                
+

@@ -579,7 +579,7 @@ class AudioSnippet:
                 features['avg_pulse_duration'] = 0
             
             # 3. SPECTRAL FEATURES - of the event
-            S = np.abs(librosa.stft(event_audio, n_fft=512, hop_length=10, window="hann"))
+            S = np.abs(librosa.stft(event_audio, n_fft=128, hop_length=4, window="hann"))
             S_db = librosa.amplitude_to_db(S, ref=np.max)
             
             spectral_centroids = librosa.feature.spectral_centroid(S=S, sr=self.sr)[0]
@@ -726,3 +726,14 @@ class AudioSnippet:
                      return features_i if features_i['event_energy'] > features_j['event_energy'] else features_j
          
          return False
+     
+        
+    def is_cavitation(self, min_event_duration=0.0005, threshold_percentile=80, env_smooth = 10, pulse_dist = 1):
+         events = self.find_events(min_event_duration, threshold_percentile, env_smooth)
+         
+         if not events:
+             return False
+         
+         for event in events:
+             features = self.extract_features(event, pulse_dist, env_smooth)
+             return features
