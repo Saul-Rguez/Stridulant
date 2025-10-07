@@ -163,7 +163,9 @@ class AudioSnippet:
             env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
         the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
         of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
-        smoother lines.
+        smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+        smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+        audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
             
         Returns:
             Spectrogram: A Spectrogram instance containing the generated spectrogram.
@@ -391,7 +393,7 @@ class AudioSnippet:
     
 
     
-    def find_events(self, min_event_duration=0.2, threshold_percentile=25):
+    def find_events(self, min_event_duration=0.2, threshold_percentile=25, env_smooth=10):
         """
         Detects audio events based on energy envelope thresholding.
         
@@ -400,7 +402,15 @@ class AudioSnippet:
         
         Args:
             min_event_duration (float): Minimum duration of events in seconds (default: 0.2)
+            
             threshold_percentile (float): Percentile value for energy threshold (0-100) (default: 25)
+            
+            env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+            the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+            of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+            smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+            smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+            audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
                 
         Returns:
             list: List of tuples containing event information, where each tuple is:
@@ -412,7 +422,7 @@ class AudioSnippet:
             
         # Calculate energy envelope
         envelope = np.abs(signal.hilbert(self.audio))
-        envelope_smoothed = uniform_filter1d(envelope, size=int(0.01 * self.sr))
+        envelope_smoothed = uniform_filter1d(envelope, size=int(env_smooth/1000 * self.sr))
         
         # Set threshold based on percentile of energy
         energy_threshold = np.percentile(envelope_smoothed, threshold_percentile)
@@ -447,7 +457,7 @@ class AudioSnippet:
         
         return events
     
-    def extract_features(self, event, pulse_dist = 20):
+    def extract_features(self, event, pulse_dist = 20, env_smooth = 10):
         """
         Extracts features from a specific audio event.
         
@@ -457,11 +467,19 @@ class AudioSnippet:
         
         Args:
             event (tuple): Audio event tuple (start_time, end_time, max_energy) in seconds
+            
             pulse_dist (float): Minimum time between detectable pulses in milliseconds. 
                                Must be > 0. Controls pulse detection sensitivity:
                                - Lower values (5-10ms): Detect rapid pulses, risk false positives
                                - Higher values (20-30ms): More conservative, may miss fast sequences
                                Typical insect stridulations work well with 10-20ms.
+                               
+            env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+                    the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+                    of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+                    smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+                    smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+                    audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
                                
         Returns:
             dict: Dictionary containing extracted acoustic features including:
@@ -503,7 +521,7 @@ class AudioSnippet:
         # 1. ENVELOPE ANALYSIS - within the detected event
         if len(event_audio) > 0:
             envelope = np.abs(signal.hilbert(event_audio))
-            envelope_smoothed = uniform_filter1d(envelope, size=int(0.01 * self.sr))
+            envelope_smoothed = uniform_filter1d(envelope, size=int(env_smooth/1000 * self.sr))
             
             # Attack slope within the event (first 20% of event duration)
             attack_window = max(1, int(0.2 * len(envelope_smoothed)))
@@ -601,9 +619,9 @@ class AudioSnippet:
             'spectral_centroid_mean': 0
         }
     
-    def is_stridulation(self, min_pulses=6, min_regularity=10, min_duration=0.5, 
+    def is_stridulation(self, min_event_duration=0.2, threshold_percentile=25, min_pulses=6, min_regularity=10, min_duration=0.5, 
                     max_duration=1, sustain=0.5, pulse_dist=20, 
-                    sp_range=(5500, 15000), enable_coupled=True, coupled_min_duration=0.22, coupled_gap=0.6):
+                    sp_range=(5500, 15000), env_smooth = 10, enable_coupled=True, coupled_min_duration=0.22, coupled_gap=0.6):
          """
          Evaluates if the audio snippet contains a promising stridulation signal based on 
          acoustic features. Analyzes all detected events and returns features if ANY event 
@@ -633,6 +651,13 @@ class AudioSnippet:
              pulse_dist (float): Minimum distance between pulses in milliseconds.
                                  
              sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
+             
+             env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+             the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+             of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+             smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+             smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+             audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
                               
              enable_coupled (bool): Whether to enable detection of coupled weak events.
                                    
@@ -645,7 +670,7 @@ class AudioSnippet:
          Returns:
              dict/False: Features dictionary if stridulation found, False otherwise.
          """
-         events = self.find_events()
+         events = self.find_events(min_event_duration, threshold_percentile, env_smooth)
          
          if not events:
              return False
@@ -653,7 +678,7 @@ class AudioSnippet:
          weak_candidates = []
          
          for event in events:
-             features = self.extract_features(event, pulse_dist)
+             features = self.extract_features(event, pulse_dist, env_smooth)
              
              # Check spectral characteristics, regularity and sustain FIRST
              spectral_ok = sp_range[0] < features['spectral_centroid_mean'] < sp_range[1]

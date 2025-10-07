@@ -278,7 +278,7 @@ def highpass_filter(audio, sr, cutoff=3000, order=8):
         raise ValueError(f"Error applying high-pass filter: {e}")
         
 
-def lowpass_filter(audio, sr, cutoff=5000, order=8):
+def lowpass_filter(audio, sr, cutoff=20000, order=8):
     """
     Applies a low-pass Butterworth filter to the input audio signal.
 
@@ -313,7 +313,7 @@ def lowpass_filter(audio, sr, cutoff=5000, order=8):
 def quick_scan(audio_path, snippet_duration=2.0, overlap=0, 
                min_pulses=6, min_regularity=10, min_duration=0.5,
                max_duration=1, sustain=0.5, pulse_dist=20,
-               sp_range=(5500, 15000), enable_coupled=True,
+               sp_range=(5500, 15000), env_smooth = 10, enable_coupled=True,
                coupled_min_duration=0.2, coupled_gap=1):
     """
     Scans an entire audio file for stridulation events using a sliding window approach.
@@ -332,6 +332,12 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
         enable_coupled (bool): Enable coupled events detection
         coupled_min_duration (float): Minimum duration for coupled events
         coupled_gap (float): Maximum gap between coupled events
+        env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+        the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+        of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+        smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+        smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+        audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
         
     Returns:
         tuple: (candidates, features)
@@ -424,7 +430,7 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
                     snippet.save(base_name, snippets_folder, verbose = False)
                     spectrogram = snippet.spectrogram("fft",n_fft=512,hop_length=10,window="hann")
                     spectrogram.save_img(base_name, spectrograms_folder,color = "jet", with_labels=True, verbose=False)
-                    spectrogram= snippet.spectrogram("hilbert", env_smooth = 10)
+                    spectrogram= snippet.spectrogram("hilbert", env_smooth)
                     spectrogram.save_img(base_name, spectrograms_folder,with_labels=True, verbose=False)
                     
 
