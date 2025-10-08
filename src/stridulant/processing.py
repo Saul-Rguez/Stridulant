@@ -310,7 +310,7 @@ def lowpass_filter(audio, sr, cutoff=20000, order=8):
         raise ValueError(f"Error applying low-pass filter: {e}")
         
 
-def quick_scan(audio_path, snippet_duration=2.0, overlap=0, 
+def stridulation_scan(audio_path, snippet_duration=2.0, overlap=0, 
                min_pulses=6, min_regularity=10, min_duration=0.5,
                max_duration=1, sustain=0.5, pulse_dist=20,
                sp_range=(5500, 15000), env_smooth = 10, enable_coupled=True,
@@ -320,24 +320,39 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
     
     Args:
         audio_path (str): Path to the audio file to analyze
+        
         snippet_duration (float): Duration of each analysis window in seconds (default: 2.0)
+        
         overlap (float): Overlap between consecutive snippets in seconds (default: 0)
+        
         min_pulses (int): Minimum pulses for stridulation detection
+        
         min_regularity (float): Minimum pulse regularity score
+        
         min_duration (float): Minimum event duration for strong events
+        
         max_duration (float): Maximum event duration
+        
         sustain (float): Minimum duty cycle ratio
+        
         pulse_dist (float): Minimum distance between pulses in milliseconds
+        
         sp_range (tuple): Valid frequency range for spectral centroid
-        enable_coupled (bool): Enable coupled events detection
-        coupled_min_duration (float): Minimum duration for coupled events
-        coupled_gap (float): Maximum gap between coupled events
+        
         env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
         the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
         of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
         smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
         smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
         audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+        
+        enable_coupled (bool): Enable coupled events detection
+        
+        coupled_min_duration (float): Minimum duration for coupled events
+        
+        coupled_gap (float): Maximum gap between coupled events
+        
+
         
     Returns:
         tuple: (candidates, features)
@@ -449,7 +464,39 @@ def quick_scan(audio_path, snippet_duration=2.0, overlap=0,
     return candidates, features_list
     
 
-def cavitation_scan(audio_path, snippet_duration=2.0, overlap=0, min_event_duration=0.0005, threshold_percentile=80, env_smooth = 1, pulse_dist=1):
+def cavitation_scan(audio_path, snippet_duration=2.0, overlap=0, energy_threshold = 0.001, min_event_duration=0.0005, threshold_percentile=80, env_smooth = 1, pulse_dist=1):
+    """
+    Scans an entire audio file for cavitation events using a sliding window approach.
+    
+    Args:
+        audio_path (str): Path to the audio file to analyze
+        
+        snippet_duration (float): Duration of each analysis window in seconds (default: 2.0)
+        
+        overlap (float): Overlap between consecutive snippets in seconds (default: 0)
+        
+        energy_threshold (float): Threshold of energy of cavitation bursts. This should be guessed from cavitation features.
+        
+        min_event_duration (float): Minimum event duration to be considered an event
+        
+        threshold_percentile (float): percentile for the events finding function. It is the percentile with respect to the snippet.
+        
+        env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+        the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+        of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+        smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+        smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+        audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+        
+        pulse_dist (float): Minimum distance between pulses in milliseconds. This is legacy for the stridulations. For cavitation you
+        should keep it at 1 in principle.   
+        
+    Returns:
+        tuple: (candidates, features)
+            - candidates: List of absolute timestamps in seconds
+            - features: List of feature dictionaries for each candidate
+    """
+    
     try:
         audio, sr = load_audio(audio_path)
     except Exception as e:
@@ -493,11 +540,12 @@ def cavitation_scan(audio_path, snippet_duration=2.0, overlap=0, min_event_durat
         while start_time + snippet_duration <= total_duration:
             # Create and analyze snippet
             snippet = create_snippet(audio, sr, start_time, snippet_duration)
-            snippet.normalize()
+            #snippet.normalize()
             
         
             # Detect cavitation with all parameters
             features = snippet.is_cavitation(
+                energy_threshold = energy_threshold,
                 min_event_duration = min_event_duration,
                 threshold_percentile = threshold_percentile,
                 pulse_dist=pulse_dist,

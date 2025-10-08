@@ -728,12 +728,58 @@ class AudioSnippet:
          return False
      
         
-    def is_cavitation(self, min_event_duration=0.0005, threshold_percentile=80, env_smooth = 10, pulse_dist = 1):
+    def is_cavitation(self, energy_threshold = 0.001, min_event_duration=0.0005, threshold_percentile=85, env_smooth = 1, pulse_dist = 1):
+         """
+         Evaluates if the audio snippet contains a promising cavitation signal based on 
+         acoustic features. Analyzes the most energetic event and returns features if its energy 
+         is over the threshold.
+         
+         This function may be preliminar. So far I have only found the absolute energy to be somewhat telling
+         of whether the event is a cavitation or not. That means:
+             a) you need relatively clean audio.
+             b) audio cannot be normalized (if normalized the absolute energy becomes relative)
+             c) if the most energetic event does not meet the criterion, no event will
+             d) if the most energetic event meets the criterion, more events may, you shall
+        investigate that yourselves.
+         
+         Args:
+            energy_threshold (float): Threshold of energy of cavitation bursts. This should be guessed from 
+            cavitation features.
+                                    
+            min_event_duration (float): Minimun time for a sound to be considered an event.                              
+                           
+            pulse_dist (float): Minimum distance between pulses in milliseconds.
+                                 
+            sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
+             
+            threshold_percentile (float): percentile for the events finding function. It is the percentile with 
+            respect to the snippet.
+            
+            env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+            the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+            of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+            smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+            smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+            audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+            
+            pulse_dist (float): Minimum distance between pulses in milliseconds. This is legacy for the stridulations. 
+            For cavitation you should keep it at 1 in principle.   
+            
+             
+         Returns:
+             dict/False: Features dictionary if stridulation found, False otherwise.
+         """     
+        
+        
          events = self.find_events(min_event_duration, threshold_percentile, env_smooth)
          
          if not events:
              return False
-         
-         for event in events:
-             features = self.extract_features(event, pulse_dist, env_smooth)
-             return features
+         else:
+             events.sort(key=lambda x: x[2], reverse = True)
+
+             features = self.extract_features(events[0], pulse_dist, env_smooth)
+             if features["event_energy"]>energy_threshold:
+                 return features
+             else:
+                 return False
