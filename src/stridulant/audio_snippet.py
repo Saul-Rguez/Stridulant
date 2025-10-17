@@ -100,7 +100,7 @@ class AudioSnippet:
         if metadata:
             file_name = f"{source_name}_snippet{norm_label}{transform_label}_{self.start_time}.wav"
         else:
-            file_name = source_name
+            file_name = f"{source_name}.wav"
         output_path = os.path.join(output_dir, file_name)
         sf.write(output_path, self.audio, self.sr)
         if verbose:

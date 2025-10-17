@@ -161,7 +161,7 @@ class Spectrogram:
         if metadata:
             file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}_.png"
         else:
-            file_name = source_name
+            file_name = f"{source_name}.png"
         output_path = os.path.join(output_dir, file_name)
         
         if events:
@@ -282,7 +282,7 @@ class Spectrogram:
         if metadata:
             file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}.csv"
         else:
-            file_name = source_name
+            file_name = f"{source_name}.csv"
         output_path = os.path.join(output_dir, file_name)
         
         # Handle Mel spectrogram or FFT spectrogram
