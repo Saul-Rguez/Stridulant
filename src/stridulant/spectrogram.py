@@ -144,7 +144,7 @@ class Spectrogram:
         plt.show()
     
 
-    def save_img(self, source_name, output_dir,color = "inferno", with_labels=False, verbose=True, events = False):
+    def save_img(self, source_name, output_dir,color = "inferno", with_labels=False, verbose=True, events = False, metadata = True):
         """
         Saves the spectrogram as an image file.
 
@@ -158,7 +158,10 @@ class Spectrogram:
         os.makedirs(output_dir, exist_ok=True)
         transform_label = "_transformed" if self.transformed else ""
         norm_label = "_norm" if self.normalized else ""
-        file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}_.png"
+        if metadata:
+            file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}_.png"
+        else:
+            file_name = source_name
         output_path = os.path.join(output_dir, file_name)
         
         if events:
@@ -265,7 +268,7 @@ class Spectrogram:
             if verbose:
                 print(f"Saved spectrogram to '{output_path}'")
         
-    def save_table(self, source_name, output_dir):
+    def save_table(self, source_name, output_dir, metadata = True):
         """
         Saves the spectral information as a CSV table, following the same naming convention as the spectrogram image.
         
@@ -276,7 +279,10 @@ class Spectrogram:
         os.makedirs(output_dir, exist_ok=True)
         transform_label = "_transformed" if self.transformed else ""
         norm_label = "_norm" if self.normalized else ""
-        file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}.csv"
+        if metadata:
+            file_name = f"{source_name}_spectrogram_{self.spec_type}{norm_label}{transform_label}_{self.start_time}.csv"
+        else:
+            file_name = source_name
         output_path = os.path.join(output_dir, file_name)
         
         # Handle Mel spectrogram or FFT spectrogram

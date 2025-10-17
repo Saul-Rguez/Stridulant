@@ -417,7 +417,8 @@ def stridulation_scan(audio_path, snippet_duration=2.0, overlap=0,
                 sp_range=sp_range,
                 enable_coupled=enable_coupled,
                 coupled_min_duration=coupled_min_duration,
-                coupled_gap=coupled_gap
+                coupled_gap=coupled_gap,
+                env_smooth = env_smooth
             )
             
             if features:
@@ -540,7 +541,6 @@ def cavitation_scan(audio_path, snippet_duration=2.0, overlap=0, energy_threshol
         while start_time + snippet_duration <= total_duration:
             # Create and analyze snippet
             snippet = create_snippet(audio, sr, start_time, snippet_duration)
-            #snippet.normalize()
             
         
             # Detect cavitation with all parameters

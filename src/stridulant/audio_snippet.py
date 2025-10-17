@@ -81,7 +81,7 @@ class AudioSnippet:
         return f"Audio snippet starting at {self.start_time} seconds, sampling rate: {self.sr} Hz, audio data shape: {self.audio.shape}"
     
 
-    def save(self, source_name, output_dir, verbose=True):
+    def save(self, source_name, output_dir, verbose=True, metadata = True):
         """
         Saves the current audio snippet as a .wav file in the specified output directory.
 
@@ -97,7 +97,10 @@ class AudioSnippet:
         
         transform_label = "_transformed" if self.transformed else ""
         norm_label = "_norm" if self.normalized else ""
-        file_name = f"{source_name}_snippet{norm_label}{transform_label}_{self.start_time}.wav"
+        if metadata:
+            file_name = f"{source_name}_snippet{norm_label}{transform_label}_{self.start_time}.wav"
+        else:
+            file_name = source_name
         output_path = os.path.join(output_dir, file_name)
         sf.write(output_path, self.audio, self.sr)
         if verbose:
