@@ -1,16 +1,13 @@
 
 # MANIFEST.in
 
-# Include the Python package and its modules
-include stridulant/**/*.py
-
 # Include requirements file
 include requirements.txt
 
 # Include README file
 include README.md
 
-# Include LICENSE file if you have one
+# Include LICENSE file
 include LICENSE
 
 # Include users manual
