@@ -15,6 +15,8 @@ import soundfile as sf
 from stridulant.audio_snippet import AudioSnippet
 import os
 import warnings
+import os
+import csv
 
 
 def load_audio(path, normalize = False):
@@ -99,3 +101,85 @@ def save_audio(audio, sr, path, overwrite=False):
         sf.write(path, audio, sr)
     except Exception as e:
         raise RuntimeError(f"Error saving audio file: {e}")
+
+
+
+def save_features(features, output_path):
+    """
+    Append acoustic feature data to a CSV file.
+
+    This function accepts either a single feature dictionary or a list of
+    feature dictionaries and writes them as rows in a structured CSV file.
+    The feature order is fixed by FEATURE_COLUMNS to ensure consistency
+    for downstream analysis or machine learning pipelines.
+
+    If the file does not exist, a header row is created automatically.
+
+    Parameters
+    ----------
+    features : dict or list of dict
+        Either a single feature dictionary or a list of feature dictionaries.
+        Each dictionary must contain keys matching FEATURE_COLUMNS.
+
+    output_path : str
+        Path to the CSV file where features will be appended.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    - Missing keys in feature dictionaries are written as None.
+    - Data is appended (not overwritten).
+    - Column order is strictly enforced to maintain ML compatibility.
+    """
+    FEATURE_COLUMNS = [
+        "absolute_timestamp",
+        "snippet_start",
+        "snippet_duration",
+        "event_position_in_snippet",
+        "event_start_time",
+        "event_duration",
+        "event_energy",
+        "pulse_count",
+        "pulse_regularity",
+        "avg_pulse_interval",
+        "pulse_density",
+        "duty_cycle",
+        "avg_pulse_duration",
+        "spectral_centroid_mean",
+        "tonal_variation",
+        "dynamic_range",
+        "attack_slope",
+    ]
+
+    file_exists = os.path.isfile(output_path)
+
+    if isinstance(features, dict):
+        features = [features]
+
+    with open(output_path, mode="a", newline="") as f:
+        writer = csv.writer(f, delimiter="\t")
+
+        if not file_exists:
+            writer.writerow(FEATURE_COLUMNS)
+
+        for feat in features:
+
+            row = []
+            for col in FEATURE_COLUMNS:
+
+                if col in feat:
+                    row.append(feat[col])
+
+                elif "features" in feat and col in feat["features"]:
+                    row.append(feat["features"][col])
+
+                elif "snippet_context" in feat and col in feat["snippet_context"]:
+                    row.append(feat["snippet_context"][col])
+
+                else:
+                    row.append(None)
+
+            writer.writerow(row)
