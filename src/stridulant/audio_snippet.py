@@ -444,20 +444,33 @@ class AudioSnippet:
                 # Event starts
                 in_event = True
                 event_start = i
+
             elif not is_above and in_event:
                 # Event ends
                 in_event = False
                 event_end = i
-                
+
                 # Only keep events longer than minimum duration
                 if (event_end - event_start) >= min_event_samples:
                     event_energy = np.max(envelope_smoothed[event_start:event_end])
                     events.append((
-                        event_start / self.sr,  # Start time in seconds
-                        event_end / self.sr,    # End time in seconds  
-                        event_energy            # Maximum energy in event
+                        event_start / self.sr,
+                        event_end / self.sr,
+                        event_energy
                     ))
-        
+
+        # Close and store the final event if it reaches the end of the audio
+        if in_event:
+            event_end = len(above_threshold)
+
+            if (event_end - event_start) >= min_event_samples:
+                event_energy = np.max(envelope_smoothed[event_start:event_end])
+                events.append((
+                    event_start / self.sr,
+                    event_end / self.sr,
+                    event_energy
+                ))
+
         return events
     
     def extract_features(self, event, pulse_dist = 20, env_smooth = 10):
