@@ -730,9 +730,20 @@ class AudioSnippet:
             'spectral_centroid_mean': 0
         }
     
-    def is_stridulation(self, min_event_duration=0.2, threshold_percentile=25, min_pulses=6, min_regularity=10, min_duration=0.5, 
-                    max_duration=1, sustain=0.5, pulse_dist=20, 
-                    sp_range=(5500, 15000), env_smooth = 10, enable_coupled=True, coupled_min_duration=0.22, coupled_gap=0.6):
+    def is_stridulation(self, min_event_duration=0.2, 
+                        threshold_percentile=25, 
+                        min_pulses=6,
+                        min_regularity=10, 
+                        min_duration=0.5, 
+                        max_duration=1, 
+                        sustain_threshold_percentile = 30,
+                        sustain=0.5, 
+                        pulse_dist=20,
+                        sp_range=(5500, 15000), 
+                        env_smooth = 10, 
+                        enable_coupled=True,
+                        coupled_min_duration=0.22, 
+                        coupled_gap=0.6):
          """
          Evaluates if the audio snippet contains a promising stridulation signal based on 
          acoustic features. Analyzes all detected events and returns features if ANY event 
@@ -745,43 +756,48 @@ class AudioSnippet:
          
          Args:
              min_pulses (int): Minimum number of individual pulses required within the event.
-                               Typical insect stridulations have 6+ distinct pulses.
+                            Typical insect stridulations have 6+ distinct pulses.
                                
              min_regularity (float): Minimum pulse regularity score (1/standard_deviation of intervals).
-                                    Higher values indicate more consistent timing between pulses.
-                                    Values >10 suggest rhythmic, organized patterns.
+                            Higher values indicate more consistent timing between pulses.
+                            Values >10 suggest rhythmic, organized patterns.
                                     
              min_duration (float): Minimum event duration in seconds for strong individual events.
-                                  Use 0 for no minimum.
+                            Use 0 for no minimum.
                                   
              max_duration (float/None): Maximum event duration in seconds. Use None for no maximum.
-                                       
+        
+             sustain_threshold_percentile: The precentile of the smoothed envelope used to 
+                            calculate sustain, i.e. the ratio of the event contaning audio.
+                    
              sustain (float): Minimum duty cycle ratio (0-1) indicating what fraction of the 
-                             event duration contains actual sound.
+                            event duration contains sound above the sustain threshold.
                              
              pulse_dist (float): Minimum distance between pulses in milliseconds.
                                  
              sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
              
              env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
-             the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
-             of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
-             smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
-             smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
-             audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+                            the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+                            of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+                            smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+                            smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+                            audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
                               
              enable_coupled (bool): Whether to enable detection of coupled weak events.
                                    
              coupled_min_duration (float): Minimum duration for events in coupled detection.
-                                          Allows shorter events to be considered only when
-                                          looking for coupled pairs.
+                            Allows shorter events to be considered only when
+                            looking for coupled pairs.
                                           
              coupled_gap (float): Maximum time gap between consecutive weak events in seconds.
          
          Returns:
              dict/False: Features dictionary if stridulation found, False otherwise.
          """
-         events = self.find_events(min_event_duration, threshold_percentile, env_smooth)
+         events = self.find_events(min_event_duration, 
+                                   threshold_percentile, 
+                                   env_smooth)
          
          if not events:
              return False
@@ -789,7 +805,7 @@ class AudioSnippet:
          weak_candidates = []
          
          for event in events:
-             features = self.extract_features(event, pulse_dist, env_smooth)
+             features = self.extract_features(event, pulse_dist, env_smooth, sustain_threshold_percentile)
              
              # Check spectral characteristics, regularity and sustain FIRST
              spectral_ok = sp_range[0] < features['spectral_centroid_mean'] < sp_range[1]
@@ -835,28 +851,41 @@ class AudioSnippet:
                  if 0 <= time_gap <= coupled_gap:
                      # Return the more energetic event of the coupled pair
                      return features_i if features_i['event_energy'] > features_j['event_energy'] else features_j
-         
          return False
      
         
-    def is_cavitation(self, energy_threshold = 0.001, min_event_duration=0.0005, threshold_percentile=85, env_smooth = 1, pulse_dist = 1):
+    def is_cavitation(self, spectral_rolloff_min = 23000, 
+                           min_energy = 0.0015,
+                           max_energy = 0.01, 
+                           min_event_duration=0.00005, 
+                           max_event_duration = 0.002, 
+                           pulse_dist = 1, 
+                           env_smooth = .1, 
+                           threshold_percentile = 98):
          """
          Evaluates if the audio snippet contains a promising cavitation signal based on 
          acoustic features. Analyzes the most energetic event and returns features if its energy 
          is over the threshold.
          
-         This function may be preliminar. So far I have only found the absolute energy to be somewhat telling
-         of whether the event is a cavitation or not. That means:
+         This function is mostly based on what is known from tree UAE from the literature:
+             a) UAE are short. Usually a few ms long.
+             b) They have at least part of their energy in the ultrasonic range.
+             c) They are likely to be quite faint, at least not perceivable by ear.
+    
+         To use the function:
              a) you need relatively clean audio.
              b) audio cannot be normalized (if normalized the absolute energy becomes relative)
-             c) if the most energetic event does not meet the criterion, no event will
-             d) if the most energetic event meets the criterion, more events may, you shall
-        investigate that yourselves.
          
          Args:
+             spectral_rolloff_min: Minimum frequency at which at 85% of energy falls below.
+            
             energy_threshold (float): Threshold of energy of cavitation bursts. This should be guessed from 
             cavitation features.
-                                    
+            
+            min_energy: Minimum event energy 
+
+            max_energy: Max event energy
+            
             min_event_duration (float): Minimun time for a sound to be considered an event.                              
                            
             pulse_dist (float): Minimum distance between pulses in milliseconds.
@@ -882,15 +911,26 @@ class AudioSnippet:
          """     
         
         
-         events = self.find_events(min_event_duration, threshold_percentile, env_smooth)
-         
-         if not events:
-             return False
-         else:
-             events.sort(key=lambda x: x[2], reverse = True)
+        # Detect events
+        events = self.find_events(
+            min_event_duration,
+            threshold_percentile,
+            env_smooth
+        )
 
-             features = self.extract_features(events[0], pulse_dist, env_smooth)
-             if features["event_energy"]>energy_threshold:
-                 return features
-             else:
-                 return False
+        if not events:
+            return False
+        else:
+            events.sort(key=lambda x: x[2], reverse=True)
+
+            features = self.extract_features(
+               events[0], pulse_dist, env_smooth)
+        
+            if (features["spectral_rolloff"] > spectral_rolloff_min
+                    and min_energy < features["event_energy"] < max_energy
+                    and features['event_duration'] < max_event_duration
+                    ):
+                return True
+            else:
+                return False
+                 
