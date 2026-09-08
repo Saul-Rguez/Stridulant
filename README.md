@@ -1,52 +1,20 @@
-# Stridulant 🦗🎵
+# Stridulant
 
-> **Professional acoustic analysis toolkit for bioacoustics, cavitation detection, and machine learning**
+> ** Bioacoustic toolkit for analyzing novel sounds **
 
-Stridulant is a comprehensive Python package for audio analysis, specializing in **insect stridulation detection**, **ultrasonic cavitation monitoring**, and **spectrogram-based deep learning**. It provides a complete pipeline from audio loading to feature extraction, data augmentation, and CNN classification.
+Stridulant is a comprehensive Python package for bioacoustic analysis, pre-loaded with functions to scan for stridulation-like insect sounds and ultrasonic acoustic emissions from plants. 
 
-## 🎯 Key Applications
+## Core functions
 
-- **Bioacoustics**: Automatic detection of stridulation patterns (insects, birds, etc.)
-- **Ultrasonic Engineering**: Cavitation event detection in liquids
-- **Audio ML**: Complete data augmentation + feature extraction + training pipeline
-- **Spectrogram Analysis**: Mel, FFT, and Hilbert envelope spectrograms
+- **Event detection.** _Stridulant_ can automate the detection of acoustic events, eliminating empty audio by filtering for regions of sustained energy.
+- **Feature extraction.** _Stridulant_ extracts a comprehensive set of acoustic features that can be used when reporting a description of newly studied or discovered sounds or to build feature-based scans. Currently, the features focus on non-vocalized sounds, including several pulse characteristics . These features may be expanded by users themselves or by getting in touch with the developers.
+- **Feature-based scanning.** Acoustic features may be used to build feature-based scans, which loop through audio and filter acoustic events matching the target acoustic events. This may serve as a pre-filtering step for more complex (deep learning) models, but may be used as a stand-alone method if the target sounds have consistent feature values. _Stridulant_ comes pre-loaded with feature-based scans for insect stridulations and ultrasonic acoustic emissions from plants.
+- **CNN training.** While not the main focus of _Stridulant_, the package includes a simple binary spectrogram classifier.
+- **Audio processing tools.**: To prepare files for analysis, _Stridulant_ offer spectrogram generation, normalization and high- and low-pass filtering.
 
-## ✨ Features
+See the manual for function usage and the accompanying publication for more context and case studies. Tutorials follow below.
 
-### Core Audio Processing
-- **AudioSnippet class** - Segment-based audio manipulation
-- **Event detection** - Energy-based event finding with Hilbert envelope
-- **Feature extraction** - 13+ acoustic features (pulse count, duty cycle, spectral centroid, etc.)
-- **Audio filtering** - High-pass and low-pass Butterworth filters
-- **Normalization** - Peak normalization (individual or global across files)
-
-### Data Augmentation (8 methods)
-- Gaussian noise addition
-- Time stretching
-- Pitch shifting
-- Time shifting
-- Clipping distortion
-- Background noise mixing
-- Time masking
-
-### Spectrogram Generation
-- **Mel spectrograms** - Perceptually scaled frequency representation
-- **FFT spectrograms** - Full spectral analysis
-- **Hilbert transform** - Amplitude envelope + instantaneous frequency
-
-### Machine Learning Pipeline
-- **CNN training** - Binary classifier for stridulation detection
-- **Model inference** - Classify spectrograms with trained model
-- **Class imbalance handling** - Automatic class weight calculation
-- **Training history logging** - CSV export of loss/accuracy
-
-### High-Level Scanners
-- `stridulation_scan()` - Scan entire audio files for stridulation events
-- `cavitation_scan()` - Scan for cavitation bursts
-- **Sliding window** - Configurable overlap and snippet duration
-- **Automatic organization** - Creates folders with snippets and spectrograms of candidates
-
-## 📦 Installation
+## Installation
 
 ```bash
 pip install stridulant
@@ -58,102 +26,647 @@ Stridulant requires:
 - Python >= 3.7
 - TensorFlow (optional, only needed for ML features)
 
-## 🚀 Quick Start
-
-### Basic audio loading and analysis
+### 0. Basic functionality
 
 ```python
-from stridulant import load_audio, AudioSnippet
+import stridulant as st
+import os
 
-# Load an audio file
-audio, sr = load_audio("cricket_recording.wav")
+# Find tutorial files here xxxxxxxx  #
+os.chdir("Tutorials")
+output_folder = r"Tutorials\Output"
 
-# Create a snippet (2 seconds starting at 5.0s)
-from stridulant.processing import create_snippet
-snippet = create_snippet(audio, sr, start_time=5.0, duration_sec=2.0)
+"""
+This tutorial assumes you have succesfully installed Stridulant and are now ready to use it.
+Here you will learn how to work with single audio files and snippets. As a starting point,
+we recommend you find one event of interest in your own audio, or use our example audio 
+and work through each step. For guidance on how to choose values for env_smooth and
+threshold_percentile, see our case studies in the accompanying publication.
 
-# Detect stridulation
-result = snippet.is_stridulation()
-if result:
-    print(f"Stridulation detected! {result['pulse_count']} pulses")
-    print(f"Frequency range: {result['spectral_centroid_mean']:.0f} Hz")
+"""
+
+###########################################################################
+## Snippets ##
+###########################################################################
+
+# Load an audio file #
+audio, sr = st.load_audio(r"Worm_audios\A20_251010_007_Tr1_2.flac")
+
+# Create a snippet #
+Snippet_1 = st.create_snippet(audio, sr, 1452, 3)
+
+# Play snippet #
+Snippet_1.play()
+
+# Save snippet #
+Snippet_1.save("Test_1", output_dir = output_folder, verbose = True, metadata = True)
+
+###########################################################################
+## Spectrograms  ##
+###########################################################################
+
+# Mel #
+spectrogram_1 = Snippet_1.spectrogram(spec_type = "mel", n_mels = 30, hop_length = 10, window = "boxcar", env_smooth = 10)
+
+# Hilbert with detected events #
+events = Snippet_1.find_events(min_event_duration = .3, env_smooth= 25, threshold_percentile= 50)
+spectrogram_2 = Snippet_1.spectrogram(spec_type = "hilbert", env_smooth = 10)
+
+# Plot spectrogram #
+spectrogram_1.plot()
+spectrogram_2.plot_events(events = events)
+
+# Save spectrogram object #
+spectrogram_1.save_img("test", output_dir = output_folder, with_labels = True)
+spectrogram_2.save_img("test", output_dir = output_folder, with_labels = True, events = events)
+
+###########################################################################
+## Normalize ##
+###########################################################################
+
+Snippet_1_normalize = st.create_snippet(audio, sr, 1452, 3)
+
+# Normalize a single snippet #
+Snippet_1_normalize = Snippet_1_normalize.normalize()
+
+# Normalize within one audio file #
+audio_normalize = st.normalize_audio(audio = audio, target_max = 0.75)
+
+# Global normalization (no example files) #
+# st.normalize_global("your folder here", output_dir = "your folder here", target_max = 0.75)
+
+###########################################################################
+## Filtering ##
+###########################################################################
+
+Snippet_1_filtered = st.create_snippet(audio, sr, 1452, 3)
+
+# Highpass filter #
+Snippet_1_filtered.audio = st.highpass_filter(Snippet_1.audio, sr, cutoff = 3000, order = 8)
+
+# Lowpass filter #
+Snippet_1_filtered.audio = st.lowpass_filter(Snippet_1.audio, sr, cutoff = 20000, order = 8)
+
+###########################################################################
+## Find and extract events ##
+###########################################################################
+
+events = Snippet_1.find_events(min_event_duration = .3, env_smooth= 25, threshold_percentile= 50)
+
+# Extract features of a single event #
+features2 = Snippet_1.extract_features(events[0], pulse_dist=1)
+st.save_features(features2,"Tutorials\Output\save_features.csv")
+
+# Or, extract features from all events to a csv file #
+st.feature_finder(
+          output_folder = output_folder,
+          audio = Snippet_1,
+          min_event_duration= 0.3, 
+          env_smooth= 25, 
+          threshold_percentile= 50,
+          pulse_dist = 1,
+          output_name = "snippet_features")
 ```
 
-### Spectrogram generation
+## Acoustic features details
+
+The `extract_features()` method returns a dictionary with:
+
+| Feature                  | Description                                                          | Unit                                           |
+| ------------------------ | -------------------------------------------------------------------- | ---------------------------------------------- |
+| `event_duration`         | Duration of the event                                                | Seconds                                        |
+| `event_energy`           | Peak amplitude of the smoothed envelope                              | Typically unitless, unless audio is calibrated |
+| `attack_rate`            | Rate at which amplitude rises in the first 20% of the event envelope | Amplitude units per sample                     |
+| `duty_cycle`             | Fraction of event duration above an envelope threshold               | Fraction (0–1)                                 |
+| `dynamic_range`          | Difference between the loudest and quietest spectral amplitudes      | dB                                             |
+| `avg_pulse_duration`     | Mean pulse duration                                                  | Seconds                                        |
+| `avg_pulse_interval`     | Mean time between pulses                                             | Seconds                                        |
+| `pulse_count`            | Number of pulses                                                     | —                                              |
+| `pulse_density`          | Pulses per second                                                    | Pulses/second                                  |
+| `pulse_regularity`       | Rhythm consistency                                                   | Standard deviation of intervals between pulses |
+| `frequency_range`        | Bandwidth containing 90% of spectral energy                          | Hz                                             |
+| `spectral_centroid_mean` | Dominant frequency                                                   | Hz                                             |
+| `spectral_roll_off`      | Frequency at which 85% of energy falls below                         | Hz                                             |
+| `tonal_variation`        | Frequency stability                                                  | Standard deviation of the mean of centroid     |
+
+
+### 1. Prepare snippet sets
 
 ```python
-# Generate Mel spectrogram
-mel_spec = snippet.spectrogram('mel', n_mels=128)
-mel_spec.save_img("cricket", "./spectrograms", color="inferno")
+import stridulant as st
+import os
 
-# Generate Hilbert envelope
-hilbert_spec = snippet.spectrogram('hilbert', env_smooth=10)
-hilbert_spec.save_table("cricket", "./tables")  # Export as CSV
+# Replace with your folder path #
+os.chdir("Tutorials")
+output_folder ="Tutorials\Output"
+
+"""
+This tutorial will help you create snippets from annotation tables. After, it shows how
+you can use one or more folders of snippets to start exploring your target sound, and investigate how it
+differentiates from non-target sounds.
+
+If you have an annotation table, you may start by importing it and creating snippets and spectrograms based on the table.
+If you already have a folder with snippets, you can move on to finding events and extracting features.
+You are of course also welcome to use the example files provided.
+
+"""
+
+##########################################################################
+## Making snippets and/or spectrograms from annotation tables ##
+###########################################################################
+
+st.process_table(input_table = r"raven_A20_251010_007_Tr1_2.Table.1.selections.txt",
+              output_dir = output_folder,
+              delim = "\t",
+              audio = r"Worm_audios\A20_251010_007_Tr1_2.flac",
+              make_snippets = True,
+              make_spectrograms = True,
+              snippet_duration=3,
+              start_time_column = "Begin Time (s)",
+              end_time_column = "End Time (s)",
+              ids = ["Selection", "Annotation"],
+              spec_type = "mel", 
+              n_mels = 30, 
+              hop_length = 10, 
+              window = "boxcar", 
+              env_smooth = 25
+              )     
+
+st.process_table(input_table = r"raven_C20_251016_005_Tr1_1.Table.1.selections.txt",
+              output_dir = output_folder,
+              delim = "\t",
+              audio = r"Worm_audios\C20_251016_005_Tr1_1.flac",
+              make_snippets = True,
+              make_spectrograms = True,
+              snippet_duration=3,
+              start_time_column = "Begin Time (s)",
+              end_time_column = "End Time (s)",
+              ids = ["Selection", "Annotation"],
+              spec_type = "mel", 
+              n_mels = 30, 
+              hop_length = 10, 
+              window = "boxcar", 
+              env_smooth = 25
+              )     
+
+###########################################################################
+## Extracting features from folders of snippets ##
+###########################################################################
+
+st.batch_feature_finder(
+          output_folder = output_folder,
+          snippet_folder_list = [os.path.join(output_folder, "Snippets_A20_251010_007_Tr1_2"), 
+                                 os.path.join(output_folder, "Snippets_C20_251016_005_Tr1_1")],
+          min_event_duration=0.3,
+          threshold_percentile=50,
+          env_smooth=25,
+          pulse_dist=1,
+          output_name = "features_worms",
+          df_format = "long")
+
+## The resulting data frame can be used to explore differences in sounds. Here follows an example using seaborn. ##
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+data = pd.read_csv(os.path.join(output_folder, "features_worms.csv"))
+data["Result"] = data.iloc[:, 0].str.contains("Negative", na=False)\
+                               .map({True: "Negative", False: "Positive"})
+feature_columns = data.columns.drop([data.columns[0], "Result"])
+
+n_cols = 4
+n_rows = 4
+plt.figure(figsize=(5*n_cols, 4*n_rows))
+
+for i, col in enumerate(feature_columns, 1):
+    plt.subplot(n_rows, n_cols, i)
+    sns.boxplot(x='Result', y=col, data=data)
+    plt.title(f'{col}')
+    plt.xlabel('')
+    plt.ylabel(col)
+
+plt.tight_layout()
+plt.show()
 ```
 
-### Data augmentation for ML
+### 3. Feature-based scans
 
 ```python
-# Apply augmentations
-snippet.add_gaussian_noise(min_amplitude=0.001, max_amplitude=0.015)
-snippet.time_stretch(min_rate=0.8, max_rate=1.25)
-snippet.pitch_shift(min_semitones=-4, max_semitones=4)
+import stridulant as st
+import os
 
-# Save augmented snippet (automatically flagged as transformed)
-snippet.save("cricket", "./augmented", metadata=True)
+# Replace with your folder path #
+os.chdir("Tutorials")
+folder = "Tutorials"
+
+"""
+In this tutorial we will demonstrate how to detect stridulations and UAE on single snippets.
+We will further demonstrate how to build your own function using worm sounds as an example.
+Once the settings are confirmed to detect events in known positive snippet, batch processing functions can be used.
+See the Batch processing tutorial on how to proceed after this one. See the accompanying publication for  
+more information about the case studies. 
+ 
+"""
+
+# Load an audio file on which to detect stridulations #
+audio, sr = st.load_audio(r"Ant_stridulation.FLAC")
+
+# Create a snippet #
+Snippet_1 = st.create_snippet(audio, sr, 758, 3)
+Snippet_1.play()
+
+# Detect stridulation event #
+Snippet_1.is_stridulation(min_event_duration=0.2, 
+                threshold_percentile=25, 
+                min_pulses=6, 
+                min_regularity=10,
+                min_duration=0.5, 
+                max_duration=1, 
+                sustain=0.5, 
+                pulse_dist=20, 
+                sp_range=(5500, 15000), 
+                env_smooth = 10, 
+                enable_coupled=True, 
+                coupled_min_duration=0.22, 
+                coupled_gap=0.6)
+
+"""
+is_stridulation evaluates if the audio snippet contains a promising stridulation signal based on 
+acoustic features. Analyzes all detected events and returns features if ANY event 
+meets all the stridulation criteria.
+
+This function implements a two-stage detection strategy:
+1. First looks for strong individual events that meet all criteria including normal duration
+2. If no strong events found, looks for pairs of weak consecutive events that 
+   together form a valid stridulation pattern, using relaxed duration criteria
+
+Args:
+    min_pulses (int): Minimum number of individual pulses required within the event.
+                      Typical insect stridulations have 6+ distinct pulses.
+                      
+    min_regularity (float): Minimum pulse regularity score (1/standard_deviation of intervals).
+                           Higher values indicate more consistent timing between pulses.
+                           Values >10 suggest rhythmic, organized patterns.
+                           
+    min_duration (float): Minimum event duration in seconds for strong individual events.
+                         Use 0 for no minimum.
+                         
+    max_duration (float/None): Maximum event duration in seconds. Use None for no maximum.
+                              
+    sustain (float): Minimum duty cycle ratio (0-1) indicating what fraction of the 
+                    event duration contains actual sound.
+                    
+    pulse_dist (float): Minimum distance between pulses in milliseconds.
+                        
+    sp_range (tuple): Valid frequency range for spectral centroid in Hz (min, max).
+    
+    env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+    the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+    of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+    smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+    smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+    audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+                     
+    enable_coupled (bool): Whether to enable detection of coupled weak events.
+                          
+    coupled_min_duration (float): Minimum duration for events in coupled detection.
+                                 Allows shorter events to be considered only when
+                                 looking for coupled pairs.
+                                 
+    coupled_gap (float): Maximum time gap between consecutive weak events in seconds.
+
+Returns:
+    dict/False: Features dictionary if stridulation found, False otherwise.
+"""
+
+# Load an audio file on which to detect UAEs #
+audio, sr = st.load_audio(r"Plant_sound.WAV") 
+
+# Create a snippet #
+Snippet_1 = st.create_snippet(audio, sr, 0, .01)
+Snippet_1.audio = st.highpass_filter(Snippet_1.audio, sr, cutoff = 3000, order = 8)
+spectrogram_1 = Snippet_1.spectrogram(spec_type = "fft", n_fft = 128, hop_length = 4, window = "hann", env_smooth = 1)
+spectrogram_1.plot()
+
+# Detect cavitation event #
+Snippet_1.is_cavitation(spectral_rolloff_min = 23000, 
+                       min_energy = 0.0015, 
+                       min_event_duration=0.00005, 
+                       max_event_duration = 0.002,
+                       max_energy = 0.01, 
+                       pulse_dist = 1, 
+                       env_smooth = .1, 
+                       threshold_percentile = 98)
+"""
+Evaluates if the audio snippet contains a promising ultrasonic acoustic emission based on 
+acoustic features. Analyzes the most energetic event and return True if its classified as UAE.
+         
+This function is mostly based on what is known from tree UAE from the literature:
+    a) UAE are short. Usually a few ms long.
+    b) They have at least part of their energy in the ultrasonic range.
+    c) They are likely to be quite faint, at least not perceivable by ear.
+    
+To use the function:
+    a) you need relatively clean audio.
+    b) audio cannot be normalized
+
+Args:
+    spectral_rolloff_min: Minimum frequency at which at 85% of energy falls below.
+            
+    min_energy: Minimum event energy
+                         
+    min_event_duration (float): Minimun time for a sound to be considered an event.      
+            
+    max_event_duration (float): Minimun time for a sound to be considered an event.                         
+                                 
+    threshold_percentile (float): percentile for the events finding function. It is the percentile with 
+    respect to the snippet.
+            
+    env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+    the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+    of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+    smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+    smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+    audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+            
+    pulse_dist (float): Minimum distance between pulses in milliseconds. This is legacy for the stridulations. 
+    For cavitation you should keep it at 1 in principle.   
+                      
+Returns:
+    dict/False: Features dictionary if stridulation found, False otherwise.
+"""   
+
+#######################################################
+
+"""
+EXAMPLE OF USER-DEFINED FUNCTION 
+
+Warning: Take care that throughout the process of developing your function, 
+you use the same snippet_duration, env_smooh, threshold_percentile and pulse_dist values, 
+as differences in these parameters can lead to different outcomes. 
+"""
+def is_worm_rumble(snippet, 
+                      min_event_duration = .3,   # mandatory aurgument, choose your own values     
+                      env_smooth = 25,           # mandatory aurgument, choose your own values            
+                      threshold_percentile = 50, # mandatory aurgument, choose your own values    
+                      pulse_dist = 1, # mandatory aurgument, choose your own values    
+                      # From here, you can add the features that you think makes the sounds stand out
+                      min_pulse_density = 160,
+                      min_pulse_count = 100,
+                      max_tonal_variation = .3,
+                      min_spectral_rolloff = 14000, 
+                      min_dynamic_range = 78
+                      # Choose any name and value 
+                      ):
+
+        # Detect events
+        events = snippet.find_events(
+            min_event_duration,
+            threshold_percentile,
+            env_smooth
+        )
+
+        if not events:
+            return False
+        else:
+            for event in events:
+                features = snippet.extract_features(event, pulse_dist=pulse_dist)
+
+                if (
+                              # Define the arguments.
+                              # After "features" should come a features name corresponding
+                              # to the extract_features output (see below to create such output). 
+                        features["pulse_density"] > min_pulse_density 
+                        and features["tonal_variation"] < max_tonal_variation
+                        and features["spectral_rolloff"] > min_spectral_rolloff
+                        and features["dynamic_range"] > min_dynamic_range
+                        and features["pulse_count"] > min_pulse_count
+                ):
+                        return True
+
+            return False
+
+"""
+Using batch_feature_finder (see the tutorial Prepare snippet sets) we were able to establish the following
+characteristics of the target sound. 
+    - The event duration was most often higher than 0.2 seconds.
+    - The minimum pulse count was around 15 (excluding some outliers).
+    - The spectral roll-off was high.
+All final functions should return True or False in order to be compatible with the batch processing function.
+"""
+
+audio, sr = st.load_audio(r"Worm_audios\A20_251010_007_Tr1_2.flac")
+target_sound_snippet = st.create_snippet(audio, sr, 1313, 3) 
+events = target_sound_snippet.find_events(min_event_duration=0.5, threshold_percentile=25, env_smooth=25)
+target_sound_snippet.extract_features(events[0])
+target_sound_snippet.play()
+is_worm_rumble(target_sound_snippet) # Target sound returns True
+
+non_target_sound_snippet = st.create_snippet(audio, sr, 1303, 3) 
+events = non_target_sound_snippet.find_events(min_event_duration=0.5, threshold_percentile=25, env_smooth=25)
+non_target_sound_snippet.extract_features(events[0])
+non_target_sound_snippet.play()
+is_worm_rumble(non_target_sound_snippet) # Non-target sound returns False
+
+# After this, you may start processing small batches of files and checking if the output lines up with 
+# your expectations. You likely have to move back and forth between tweaking the feature-based scan and 
+# testing several audio files. As with any type of signal processing, you are likley not going to get a
+# 100% accuracy unless your sound is very distinct from the background sounds.
 ```
 
-### Full audio scanning
+### 4. Batch processing
 
 ```python
-from stridulant import stridulation_scan
+import os
+import stridulant as st
 
-# Scan entire audio file for stridulations
-candidates, features = stridulation_scan(
-    "long_recording.wav",
-    snippet_duration=2.0,
-    overlap=0.5,
-    min_pulses=6,
-    min_regularity=10,
-    sp_range=(5500, 15000)  # Cricket frequency range
+# Replace with your folder path #
+folder = "Tutorials"
+output_folder = "Tutorials\Output"
+
+"""
+Use this function to loop over a single audio file, whole folders or drives of audio. 
+You may define a feature-based scan (preloaded or user-defined).
+Alternativly, you may opt to not define a scan, in which case the function will save all
+events above the specified energy threshold.
+
+"""
+
+###########################################################################
+## Preloaded function: is_stridulation ##
+###########################################################################
+
+st.batch(method = "is_stridulation", # Find all stridulation events.
+          snippet_duration = 2, 
+          output_folder = output_folder,
+          # folder_list = None, # Use this kwarg for looping over a whole folder of audio files. Includes subfolders.
+          file = [os.path.join(folder, "Ant_stridulation.flac")], # Use this kwarg for single audio files.
+          log_name = "snippet_log_ants",
+
+          normalize = "file",
+          
+          # kwargs for is_stridulation
+          min_event_duration=0.2, 
+          threshold_percentile=25, 
+          min_pulses=6, 
+          min_regularity=10, 
+          min_duration=0.5, 
+          max_duration=1, 
+          sustain=0.5, 
+          pulse_dist=20, 
+          sp_range=(5500, 15000), 
+          env_smooth = 10,
+          enable_coupled=True, 
+          coupled_min_duration=0.22, 
+          coupled_gap=0.6)
+       
+
+###########################################################################
+## Example of user defined fucntion: is_worm_rumble ##
+###########################################################################
+"""
+Warning: Take care that throughout the process of developing your batch processing settings, 
+you use the same snippet_duration, env_smooh, threshold_percentile and pulse_dist values, 
+as differences in these parameters can lead to different outcomes. 
+"""
+def is_worm_rumble(
+                      snippet, 
+                      min_event_duration = .3,      # Mandatory
+                      env_smooth = 25,              # Mandatory
+                      threshold_percentile = 50,    # Mandatory
+                      pulse_dist = 1,
+                      # From here, you can add the features that you think makes the sounds stand out
+                      min_pulse_density = 160,
+                      min_pulse_count = 100,
+                      max_tonal_variation = .3,
+                      min_spectral_rolloff = 14000, 
+                      min_dynamic_range = 78
+                      # Choose any name and value
+                      ):
+
+        # Detect events
+        events = snippet.find_events(
+            min_event_duration,
+            threshold_percentile,
+            env_smooth
+        )
+
+        if not events:
+            return False
+        else:
+            for event in events:
+                features = snippet.extract_features(event, pulse_dist = pulse_dist)
+
+                if (
+                              # Define the arguments.
+                              # After "features" should come a features name corresponding
+                              # to the extract_features output (see below to create such output). 
+                        features["pulse_density"] > min_pulse_density 
+                        and features["tonal_variation"] < max_tonal_variation
+                        and features["spectral_rolloff"] > min_spectral_rolloff
+                        and features["dynamic_range"] > min_dynamic_range
+                        and features["pulse_count"] > min_pulse_count
+                 ):
+                        return True
+
+            return False
+ 
+# Run function on whole folder #
+st.batch(method = is_worm_rumble,
+          snippet_duration = 3,
+          #make_spectrograms=True,
+          #make_snippets = "all",
+          output_folder = output_folder,
+          folder_list = [os.path.join(folder, "Worm_audios")],
+          log_name = "snippet_log_worms"
 )
-
-print(f"Found {len(candidates)} candidate events at: {candidates}")
 ```
 
-### Training a CNN classifier
+### 5. CNN training and use
 
 ```python
-from stridulant import train_model
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Feb 24 10:13:43 2026
 
-# Directory structure:
-# train_dir/
-#   positive/  (stridulation spectrograms)
-#   negative/  (non-stridulation spectrograms)
+"""
 
-model, history = train_model(
-    train_dir="./spectrograms",
-    target_size=(128, 128),
-    batch_size=32,
-    epochs=10,
-    learning_rate=0.001
-)
+from stridulant import train_model as tm, classify_spectrograms as cs
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
+
+# Replace with your stridulant folder
+train_folder = "Tutorials\CNN\train"
+test_folder = "Tutorials\CNN\test"
+
+"""
+In this tutorial we will use spectrograms of sounds from recordings of drying plants to train an CNN.
+The training data consists of manually selected positive and negative spectrograms of 0.01 seconds in length.
+When creating spectrograms for CNN training, make sure there are no axis labels (set with_labels = False).
+
+"""
+
+## Train model
+mod, hist = tm.train_model(train_folder, 
+                           batch_size=8, 
+                           epochs=20, 
+                           learning_rate=0.0001, 
+                           class_weights = None
+                           )
+"""
+Trains a Convolutional Neural Network (CNN) for binary classification of spectrogram images.
+
+This function loads images from the specified directory, preprocesses them, and trains
+a CNN model to classify whether each image represents a stridulation or not. The model
+is saved as a .keras file, and the training history (including loss and accuracy) is
+stored in a CSV file.
+
+Args:
+    train_dir (str): Path to the directory containing the training images. 
+    target_size (tuple): The target size to which each input image is resized (default is (128, 128)).
+    batch_size (int): The number of images per batch used during training (default is 32).
+    epochs (int): The number of epochs to train the model (default is 5).
+    learning_rate (float): The learning rate for the optimizer (default is 0.001).
+    class_weights (dict, optional): A dictionary of class weights for handling class imbalance. 
+    If None, the class weights are computed based on the class distribution.
+
+Returns:
+    model (tf.keras.Model): The trained CNN model.
+    history (History): The training history object containing loss and accuracy values.
+    
+"""
+
+hist = pd.read_csv(os.path.join(train_folder, "training_history.csv"))
+plt.figure(figsize=(10, 6))
+
+# 
+# Plot training and validation loss
+plt.plot(hist['loss'], label='Training loss')
+plt.plot(hist['val_loss'], label='Validation loss')
+plt.title('Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+
+# Plot training and validation accuracy
+plt.figure(figsize=(10, 6))
+plt.plot(hist['accuracy'], label='Training accuracy')
+plt.plot(hist['val_accuracy'], label='Validation accuracy')
+plt.title('Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+
+plt.show()
+
+## Run model
+mod = os.path.join(train_folder, "stridulation_detection_model.keras")
+cs.classify_spectrograms(test_folder, mod)
 ```
 
-### Classifying spectrograms with trained model
-
-```python
-from stridulant import classify_spectrograms
-
-# Classify all images in a directory
-classify_spectrograms(
-    input_dir="./unlabeled_spectrograms",
-    model_path="./spectrograms/stridulation_detection_model.keras"
-)
-# Files moved to ./unlabeled_spectrograms/positive/ or negative/
-```
-
-## 📖 API Reference
+## API Reference
 
 ### AudioSnippet Class
 
@@ -214,27 +727,6 @@ classify_spectrograms(
 
 ## ⚙️ Configuration Parameters
 
-### Stridulation Detection Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `min_pulses` | 6 | Minimum pulses per event |
-| `min_regularity` | 10 | Rhythm consistency (1/std of intervals) |
-| `min_duration` | 0.5s | Minimum event duration |
-| `max_duration` | 1.0s | Maximum event duration |
-| `sustain` | 0.5 | Duty cycle (fraction of event with sound) |
-| `sp_range` | (5500, 15000) | Valid frequency range (Hz) |
-| `pulse_dist` | 20ms | Minimum time between pulses |
-| `env_smooth` | 10ms | Hilbert envelope smoothing |
-
-### Cavitation Detection Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `energy_threshold` | 0.001 | Minimum energy for cavitation |
-| `min_event_duration` | 0.5ms | Minimum event duration |
-| `threshold_percentile` | 85 | Energy percentile for detection |
-
 ### CNN Architecture
 
 ```
@@ -269,48 +761,15 @@ train_dir/
 │   └── spectrogram4.png
 ```
 
-### For `stridulation_scan()`
-```
-audio_name/
-├── snippets/
-│   └── audio_name_snippet_starttime.wav
-└── spectrograms/
-    ├── audio_name_spectrogram_fft_starttime_.png
-    └── audio_name_spectrogram_hilbert_starttime_.png
-```
 
-## 🧠 Feature Extraction Details
 
-The `extract_features()` method returns a dictionary with:
-
-| Feature | Description |
-|---------|-------------|
-| `event_start_time` | Start time in seconds |
-| `event_duration` | Duration in seconds |
-| `event_energy` | Maximum energy in event |
-| `pulse_count` | Number of detected pulses |
-| `pulse_regularity` | 1 / std(intervals) |
-| `avg_pulse_interval` | Mean time between pulses (s) |
-| `pulse_density` | Pulses per second |
-| `duty_cycle` | Fraction of event with sound (0-1) |
-| `avg_pulse_duration` | Mean pulse duration (s) |
-| `spectral_centroid_mean` | Dominant frequency (Hz) |
-| `tonal_variation` | std(centroid) / mean(centroid) |
-| `dynamic_range` | Max - min (dB) |
-| `attack_slope` | Amplitude rise rate at onset |
-
-## ⚠️ Notes
+## Notes
 
 - **TensorFlow is lazily loaded** - ML modules are not imported by default to keep the package lightweight. Import them explicitly when needed:
   ```python
   from stridulant import train_model, classify_spectrograms
   ```
-
-- **Cavitation detection** requires non-normalized audio (absolute energy matters)
-
 - **Audio format** - WAV files recommended. Other formats supported via librosa.
-
-- **Large files** - Use `stridulation_scan()` with overlap for long recordings
 
 ## 🤝 Contributing
 
@@ -358,4 +817,4 @@ If you use Stridulant in your research, please cite:
 
 ---
 
-**Stridulant** 🦗
+**Stridulant** 
