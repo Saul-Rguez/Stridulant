@@ -393,9 +393,7 @@ class AudioSnippet:
         augmenter = TimeMask(min_band_part, max_band_part, p = 1)
         self.audio = augmenter(self.audio, self.sr)
         self.transformed = True
-    
-
-    
+        
     def find_events(self, min_event_duration=0.2, threshold_percentile=25, env_smooth=10):
         """
         Detects audio events based on energy envelope thresholding.
@@ -473,7 +471,24 @@ class AudioSnippet:
 
         return events
     
-    def extract_features(self, event, pulse_dist = 20, env_smooth = 10):
+    def extract_features(self, event, 
+                         pulse_dist = 20, 
+                         sustain_threshold_percentile = 30,
+                         pulse_threshold_percentile = 70,
+                         env_smooth = 10,
+                         n_mfcc=0, 
+                         preemp_coef = 0.97,
+                         dct_type = 2,
+                         norm = "ortho",
+                         n_fft = 1200,
+                         win_length = 1200,
+                         hop_length = 480,
+                         n_mels = 40,
+                         fmin=0,
+                         fmax=24000,
+                         power=2,
+                         htk=False,
+                         center=False):
         """
         Extracts features from a specific audio event.
         
@@ -490,13 +505,22 @@ class AudioSnippet:
                                - Higher values (20-30ms): More conservative, may miss fast sequences
                                Typical insect stridulations work well with 10-20ms.
                                
-            env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
-                    the peaks on that time range. Often numbers around 10 or so give a good trade-off betwee the smoothness
+            pulse_threshold_percentile: The percentile of the smoothed envelope used to 
+                    count pulses.
+                
+            sustain_threshold_percentile: The precentile of the smoothed envelope used to 
+                    calculate sustain, i.e. the ratio of the event contaning audio.
+                               
+            env_smooth (float): smooth factor for the Hilbert envelope. It is a number in miliseconds that smooths 
+                    the peaks on that time range. Often numbers around 10 or so give a good trade-off between the smoothness
                     of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
                     smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
                     smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
                     audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
-                               
+              
+            n_mfcc: the number of Mel-frequency cepstral coefficient dimensions to extract. For each, statistics will be 
+                    calculated and returned (see feature list below).
+            
         Returns:
             dict: Dictionary containing extracted acoustic features including:
                 - event_start_time (float): Start time of the event in seconds
@@ -507,12 +531,24 @@ class AudioSnippet:
                 - avg_pulse_interval (float): Mean time between pulses in seconds
                 - pulse_density (float): Pulses per second
                 - duty_cycle (float): Fraction of event duration containing sound (0-1)
-                - avg_pulse_duration (float): Mean pulse duration in seconds
-                - spectral_centroid_mean (float): Dominant frequency in Hz
+                - avg_pulse_duration (float): Mean pulse duration in secondsDominant frequency in Hz
                 - tonal_variation (float): Frequency stability (std/mean of centroid)
+                - spectral_centroid_mean (float): 
                 - dynamic_range (float): Spectral contrast in dB
-                - attack_slope (float): Amplitude rise rate at event onset
-                
+                - attack_rate (float): Amplitude rise rate at event onset
+                - if n_mfcc > 0 (for each coefficient):
+                    - min.cc (float): Minimum value of the coefficient across frames
+                    - max.cc (float): Maximum value of the coefficient across frames
+                    - median.cc (float): Median value of the coefficient across frames
+                    - mean.cc (float): Mean (average) value of the coefficient across frames
+                    - var.cc (float): Variance of the coefficient (unbiased, ddof=1)
+                    - skew.cc (float): Skewness (asymmetry) of the coefficient distribution
+                    - kurt.cc (float): Kurtosis (tailedness/peakedness) of the coefficient distribution
+                    - mean.d1.cc (float): Mean of the first derivative (velocity) of the coefficient
+                    - var.d1.cc (float): Variance of the first derivative (velocity) of the coefficient
+                    - mean.d2.cc (float): Mean of the second derivative (acceleration) of the coefficient
+                    - var.d2.cc (float): Variance of the second derivative (acceleration) of the coefficient
+                    
         Raises:
             ValueError: If pulse_dist <= 0 (physically impossible separation)
             
@@ -542,15 +578,15 @@ class AudioSnippet:
             # Attack slope within the event (first 20% of event duration)
             attack_window = max(1, int(0.2 * len(envelope_smoothed)))
             if len(envelope_smoothed) > attack_window:
-                attack_slope = (np.max(envelope_smoothed[:attack_window]) - 
+                attack_rate = (np.max(envelope_smoothed[:attack_window]) - 
                                envelope_smoothed[0]) / attack_window
             else:
-                attack_slope = 0
-            features['attack_slope'] = attack_slope
+                attack_rate = 0
+            features['attack_rate'] = attack_rate
             
             # 2. PULSE DETECTION - within the event
             peaks, _ = signal.find_peaks(envelope_smoothed, 
-                                        height=np.percentile(envelope_smoothed, 70),
+                                        height=np.percentile(envelope_smoothed, pulse_threshold_percentile),
                                         distance=int(pulse_dist/1000 * self.sr))  
             
             features['pulse_count'] = len(peaks)
@@ -568,7 +604,7 @@ class AudioSnippet:
              # DUTY CYCLE: measures pulse sustain
             if len(peaks) > 0:
                 
-                pulse_threshold = np.percentile(envelope_smoothed, 30)
+                pulse_threshold = np.percentile(envelope_smoothed, sustain_threshold_percentile)
                 
                 samples_above_threshold = np.sum(envelope_smoothed > pulse_threshold)
                 features['duty_cycle'] = samples_above_threshold / len(envelope_smoothed)
@@ -601,10 +637,69 @@ class AudioSnippet:
             spectral_centroids = librosa.feature.spectral_centroid(S=S, sr=self.sr)[0]
             features['tonal_variation'] = np.std(spectral_centroids) / (np.mean(spectral_centroids) + 1e-6)
             
+            freqs = librosa.fft_frequencies(sr=self.sr)
+            energy = S.sum(axis=1)
+            cum_energy = np.cumsum(energy) / np.sum(energy)
+
+            f_low = freqs[np.searchsorted(cum_energy, 0.05)]
+            f_high = freqs[np.searchsorted(cum_energy, 0.95)]
+
+            features["freq_range"] = f_high - f_low
+            
             features['dynamic_range'] = np.max(S_db) - np.min(S_db)
             
             # Spectral centroid mean (indicates dominant frequency range)
             features['spectral_centroid_mean'] = np.mean(spectral_centroids)
+            
+            # Added by Tam, spectral rolloff
+            rolloff = librosa.feature.spectral_rolloff(y=event_audio, S=S, sr=self.sr, n_fft=128, hop_length=4, window="hann", roll_percent=0.85)
+            features['spectral_rolloff'] = rolloff.mean()
+            
+            # Added by Tam, MFCC features for Garance
+            if n_mfcc > 0:
+                y_pre = librosa.effects.preemphasis(self.audio, coef=preemp_coef)
+                
+                mfcc = librosa.feature.mfcc(
+                    y=y_pre,
+                    sr=self.sr,
+                    n_mfcc=n_mfcc,
+                    dct_type=dct_type,
+                    norm=norm,
+                
+                    n_fft=n_fft,
+                    win_length=win_length,
+                    hop_length=hop_length,
+                
+                    n_mels=n_mels,
+                    fmin=fmin,
+                    fmax=fmax,
+                
+                    power=power,
+                    htk=htk,
+                    center=center
+                )
+            
+                # First and second derivatives
+                d1 = librosa.feature.delta(mfcc, order=1)
+                d2 = librosa.feature.delta(mfcc, order=2)
+        
+                # Statistics for each MFCC
+                for i in range(n_mfcc):
+        
+                    x = mfcc[i, :]
+        
+                    features[f"min.cc{i+1}"] = np.min(x)
+                    features[f"min.cc{i+1}"] = np.min(x)
+                    features[f"max.cc{i+1}"] = np.max(x)
+                    features[f"median.cc{i+1}"] = np.median(x)
+                    features[f"mean.cc{i+1}"] = np.mean(x)
+                    features[f"var.cc{i+1}"] = np.var(x, ddof=1)
+                    features[f"skew.cc{i+1}"] = skew(x)
+                    features[f"kurt.cc{i+1}"] = kurtosis(x)
+                    features[f"mean.d1.cc{i+1}"] = np.mean(d1[i, :])
+                    features[f"var.d1.cc{i+1}"] = np.var(d1[i, :], ddof=1)
+                    features[f"mean.d2.cc{i+1}"] = np.mean(d2[i, :])
+                    features[f"var.d2.cc{i+1}"] = np.var(d2[i, :], ddof=1)
             
         else:
             # Event too short, return default values
@@ -623,7 +718,7 @@ class AudioSnippet:
             'event_start_time': 0,
             'event_duration': 0,
             'event_energy': 0,
-            'attack_slope': 0,
+            'attack_rate': 0,
             'pulse_count': 0,
             'pulse_regularity': 0,
             'avg_pulse_interval': 0,
