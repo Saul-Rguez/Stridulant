@@ -133,7 +133,8 @@ class Spectrogram:
         plt.plot(t, self.spectrogram_data, label='Smooth envelope', color='blue', alpha=0.7, linewidth=1)
         
         for i, (start, end, energy) in enumerate(detected_events):
-            plt.axvspan(start-0.01, end+0.01, alpha=0.2, color='red', label='Event' if i == 0 else "")
+            #plt.axvspan(start-0.01, end+0.01, alpha=0.2, color='red', label='Event' if i == 0 else "")
+            plt.axvspan(start, end, alpha=0.2, color='red', label='Event' if i == 0 else "")
 
         plt.xlabel('Time (s)')
         plt.ylabel('Amplitud')
