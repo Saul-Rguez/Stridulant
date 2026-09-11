@@ -12,7 +12,9 @@ Stridulant is a comprehensive Python package for bioacoustic analysis, pre-loade
 - **CNN training.** While not the main focus of _Stridulant_, the package includes a simple binary spectrogram classifier.
 - **Audio processing tools.**: To prepare files for analysis, _Stridulant_ offer spectrogram generation, normalization and high- and low-pass filtering.
 
-See the manual for function usage and the accompanying publication for more context and case studies. Tutorials follow below.
+Use the pipeline to apply feature-based scans over whole folders or drives of audio.
+
+See the manual for function usage and the accompanying publication for more context and case studies. Tutorials follow below. 
 
 ## Installation
 
@@ -475,7 +477,7 @@ is_worm_rumble(non_target_sound_snippet) # Non-target sound returns False
 # 100% accuracy unless your sound is very distinct from the background sounds.
 ```
 
-### 5. CNN training and use
+### 4. CNN training and use
 
 ```python
 # -*- coding: utf-8 -*-
