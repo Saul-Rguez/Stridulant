@@ -1,2 +1,0 @@
-event_start_time,event_duration,event_energy,pulse_count,pulse_regularity,avg_pulse_interval,pulse_density,duty_cycle,avg_pulse_duration,spectral_centroid_mean,tonal_variation,dynamic_range,attack_slope
-0.23685416666666667,0.24283333333333332,0.017931942,6,63.49006307477574,0.041325,24.70830473575841,0.6999828414550446,0.02124739583333333,7994.502495706585,0.1381711240606923,80.0,4.6153336e-06
