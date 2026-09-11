@@ -1,123 +1,330 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb 17 10:30:39 2025
-Pipeline for the AI.
-Author: Saul Rodriguez Martinez
-Creation date: 2025-02-17
+Created on Wed Sep  9 11:31:54 2026
+Pipeline for running feature-based scans on datasets, 
+assuming a feature-based scan has already been created.
+See the Python tutorials on how to create feature-based scans.
+This pipeline handles interruptions of file processing by keeping a log. Upon
+restart, it will read the log and skip already processed files.
 
-This script processes audio files, prepares data for training, performs data augmentation, 
-and trains a machine learning model to classify stridulations and non-stridulations.
-The steps are as follows:
-1. Process audio files in a specified directory.
-2. Annotate data based on annotation files and organize it into positives and negatives.
-3. Perform data augmentation on positive samples to balance the dataset.
-4. Train a model to classify spectrograms using the processed data.
-5. Plot training loss and accuracy metrics.
-6. Classify new spectrograms with the trained model.
+These are the file collection steps:
+    1. Check if a previous snippet log exists
+    2. Collect previously processed files
+    3. Collect all files to be processed
+    3. Start a loop over all the files. Skip if has already been processed.
+    
+Inside the loop, each file will be:
+    1. Prepped by normalizing, filtering, augmenting, etc
+    2. Cut into snippets.
+    
+Each snippet will be:
+    3. Checked for events using find_events.
+    4. Checked for specific event using a feature-based scan.
+
+Results will be entered in the log, which will be saved after the
+completion of each file.
+
+If CNN is to be implemented next, the spectrogram outputs of the feature-based scan may be
+manually sorted into positives and negatives. A subset should be created to
+use as for training data.
 
 """
 
-# Import necessary modules
-import stridulant as st  # The custom package for processing and training
-import os  # For file and directory operations
-import shutil  # For copying files
-import pandas as pd  # For handling CSV data
-import matplotlib.pyplot as plt  # For plotting training results
+import stridulant as st
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
 
-# Set the path to the directory containing the audio files to be processed
-path = 'F:/estridulaciones/anteater data/tagged_files'
 
 # %%
-# Process all audio files in the specified folder
-# This step processes each audio file in the folder and generates necessary outputs.
-for file in os.listdir(path):
-    if file.endswith('.wav'):
-        st.process_audio_file(os.path.join(path, file))
+# If applying a user-defined feature-based scan, make sure it is loaded here.
+# For example:
+
+def is_worm_rumble(
+    snippet,
+    min_event_duration=.3,       # mandatory aurgument
+    env_smooth=25,               # mandatory aurgument
+    threshold_percentile=50,     # mandatory aurgument
+    pulse_dist=1,                # mandatory aurgument
+    # Feature arguments:
+    min_pulse_density=160,
+    min_pulse_count=100,
+    max_tonal_variation=.3,
+    min_spectral_rolloff=14000,
+    min_dynamic_range=78
+):
+
+    # Detect events
+    events = snippet.find_events(
+        min_event_duration,
+        threshold_percentile,
+        env_smooth
+    )
+
+    if not events:
+        return False
+    else:
+        for event in events:
+            features = snippet.extract_features(event, pulse_dist=pulse_dist)
+
+            if (
+                features["pulse_density"] > min_pulse_density
+                and features["tonal_variation"] < max_tonal_variation
+                and features["spectral_rolloff"] > min_spectral_rolloff
+                and features["dynamic_range"] > min_dynamic_range
+                and features["pulse_count"] > min_pulse_count
+            ):
+                return True
+
+        return False
+
 
 # %%
-# Capture subdirectories created by the 'process_audio_file' function
-# This is necessary to organize files into subfolders for further processing.
-subdirectories = [os.path.join(path, d) for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
+# --- Find or create log file ---
 
-# Now, we will divide the files into positives and negatives using the annotation files
-# This block uses the 'stridulant' structure and naming conventions, so no need to modify it
-# It also merges the data into 'Merged_audio' and 'Merged_spectrograms' for model training
-for file in os.listdir(path):
-    if file.endswith('.txt'):
-        notes = os.path.join(path, file)
-        for directory in subdirectories:
-            if file[0:-4] in directory:
-                snip = os.path.join(directory, "Audio_snippets")
-                spec = os.path.join(directory, "Spectrograms")
-                st.annotate_data(notes, snip, spec, snippet_duration=2.0, csv_delim='\t')
+# Define where the results should be saved
+output_folder = r"T:\test"
+
+# Define which folder(s) to collect wav files from
+folder_list = [r"A:\Stridulation snippets"]
+
+# Define the name of the file where the results will be logged.
+log_name = "snippet_log"
+
+# --- Find or create log file ---
+# If a snippet log already exist, the names of the audio files that are already processed will be collected.
+
+log_file = os.path.join(output_folder, f"{log_name}.csv")
+processed_files = set()
+
+if not os.path.exists(log_file):
+    with open(log_file, "w") as f:
+        f.write("Original_audio_path,Snippet_start_time, Snippet_end_time,Event,Result\n")
+    print("New snippet log created.")
+
+else:
+    print(f"Existing log found: {log_file}. Checking which files have been processed already.")
+    df = pd.read_csv(log_file)
+    processed_files = set(df["Original_audio_path"].unique())
 
 
-            # Define paths for merged audio and spectrograms
-            merged_audio_pos_path = os.path.join(path, "Merged_audio/Merged_positives")
-            merged_audio_neg_path = os.path.join(path, "Merged_audio/Merged_negatives")
-            merged_spec_pos_path = os.path.join(path, "Merged_spectrograms/Merged_spectrogram_positives")
-            merged_spec_neg_path = os.path.join(path, "Merged_spectrograms/Merged_spectrogram_negatives")
+# --- Gather files ending with wav or flac ---
+
+all_audio_files = []
+for folder in folder_list:
+    for root, dirs, files in os.walk(folder):
+        all_audio_files.extend(
+            os.path.join(root, f)
+            for f in files
+            if f.lower().endswith((".wav", ".flac"))
+        )
+
+# --- Sort files ---
+
+filtered_files = all_audio_files[1:10]
+filtered_files.sort(key=str.lower, reverse=False)
+
+# %%
+# --- Find global max ---
+# If audio should be normalized across files, find the global max across files.
+# global_max = st.find_global_max(filtered_files)
+
+# %%
+# --- Start loop --- #
+
+# Open log file
+log_f = open(log_file, "a")
+
+print(f"Total files processed: {len(processed_files)}")
+print(f"Total files remaining: {len(filtered_files) - len(processed_files)}")
+
+try:
+
+    for file_path in filtered_files:
+
+        # Skip the file if has already been processed
+        if file_path in processed_files:
+            continue
+
+        print(f"Processing: {file_path}")
+
+        try:
+
+            # --- Create names based on the naming convetion of the files --- #
+            parts = os.path.normpath(file_path).split(os.sep)
+            base_name = "_".join(parts[1:3])
+            base_name = os.path.splitext(base_name)[0]
+
+            # --- Load audio --- #
+            audio, sr = st.load_audio(file_path)
+            print("Audio loaded")
+
+            # --- Apply filters, normalization, augmentation, etc as needed --- #
+            # audio = st.highpass_filter(audio, sr)
+            # audio = st.lowpass_filter(audio, sr)
+            # audio = st.normalize_audio(audio, global_max)
+
+            # --- Calculate the number of snippets to be made in the file. Skips if the file is too short. ---
+            snippet_duration = 2  # How long the snippets should be
+            total_duration = len(audio) / sr
             
-            #create the paths in case they didn't exist
-            os.makedirs(merged_audio_pos_path, exist_ok=True)
-            os.makedirs(merged_audio_neg_path, exist_ok=True)
-            os.makedirs(merged_spec_pos_path, exist_ok=True)
-            os.makedirs(merged_spec_neg_path, exist_ok=True)
+            if total_duration < snippet_duration:
+                print("Audio file too short (snippet duration does not fit in the length of the audio file).")
+                log_f.write(f"{file_path},NA,NA,NA\n")
+                continue
+            
+            num_snippets = int(total_duration // snippet_duration)  # How many times the snippet duration fits in the audio file length.
+            print(f"Total snippets to be created: {num_snippets}")
 
-            # Copy positive and negative audio files to the merged directories
-            for file_name in os.listdir(os.path.join(snip, "positives")):
-                source_path = os.path.join(snip, "positives", file_name)
-                if os.path.isfile(source_path):
-                    shutil.copy2(source_path, merged_audio_pos_path)
+            # Check for events in each snippet
+            # If there are events, they will be scanned using the feature-based scan in the next step.
 
-            for file_name in os.listdir(os.path.join(snip, "negatives")):
-                source_path = os.path.join(snip, "negatives", file_name)
-                if os.path.isfile(source_path):
-                    shutil.copy2(source_path, merged_audio_neg_path)
+            # --- Loop over the file ---
+            for i in range(0, num_snippets):
 
-            # Copy positive and negative spectrogram files to the merged directories
-            for file_name in os.listdir(os.path.join(spec, "positives")):
-                source_path = os.path.join(spec, "positives", file_name)
-                if os.path.isfile(source_path):
-                    shutil.copy2(source_path, merged_spec_pos_path)
+                start_time = i * snippet_duration
+                end_time = start_time + snippet_duration
 
-            for file_name in os.listdir(os.path.join(spec, "negatives")):
-                source_path = os.path.join(spec, "negatives", file_name)
-                if os.path.isfile(source_path):
-                    shutil.copy2(source_path, merged_spec_neg_path)
+                # --- Create snippet name ---
+                snippet_name = f"{base_name}_{start_time}_"
+
+                # --- Create snippet and find events in snippet, normalize or add other functions if needed ---
+                Snippet = st.create_snippet(
+                    audio,
+                    sr,
+                    start_time,
+                    snippet_duration
+                )
+
+                # Snippet.normalize()
+                events = Snippet.find_events()
+
+                # --- Create binary event results: "Yes" if event(s) are found, "No" if snippet is empty ---
+                if not events:
+                    event_binary = "No"
+                    result = "NA"
+
+                    # Save to log
+                    log_f.write(
+                        f"{file_path},{start_time},{end_time},{event_binary},{result}\n"
+                    )
+
+                if events:
+                    event_binary = "Yes"
+
+                    # It is possible to skip this part of the loop to just filter events using find_events
+                    # In that case, all events above a certain energy threshold will be saved.
+                    # If you are using your own feature based scan, make sure it is loaded.
+                    # Here we use the stridulation scan.
+
+                    # --- Run feature-based scan on snippet ---
+                    # bool makes sure the result will be returned as either True or False
+                    result = bool(Snippet.is_stridulation())
+                    # or for example, result = bool(is_worm_rumble(Snippet))
+
+                    # Save to log
+                    log_f.write(
+                        f"{file_path},{start_time},{end_time},{event_binary},{result}\n"
+                    )
+
+                    # Save spectrogram
+                    spectrogram = Snippet.spectrogram()
+                    if result is True:
+                        folder = "pos"
+                    elif result is False:
+                        folder = "neg"
+
+                    output_path = os.path.join(
+                        output_folder,
+                        "Results",
+                        folder
+                    )
+
+                    spectrogram.save_img(
+                        source_name=snippet_name,
+                        output_dir=output_path,
+                        with_labels=False
+                    )
+
+                    # Save snippet
+                    if result is True:
+                        folder = "True_snippets"
+                    elif result is False:
+                        folder = "False_snippets"
+                    output_path = os.path.join(
+                        output_folder,
+                        "Results",
+                        folder
+                    )
+
+                    Snippet.save(
+                        source_name=snippet_name,
+                        output_dir=output_path
+                    )
+
+            #  --- Close loop and close log --- 
+
+        except Exception as e:
+            print("Error processing file:", file_path, e)
+
+        print(f"Saving data from {file_path}")
+        log_f.flush()
+
+finally:
+    log_f.close()
+    print("All files have been processed. Please see the log for your results.")
 
 # %%
-# Handle data imbalance by augmenting positive samples
-# This part creates variations of the stridulation samples and adds them to the positives folder
-for file in os.listdir(merged_audio_pos_path):
-    snippet = st.load_snippet(os.path.join(merged_audio_pos_path, file))
-    st.create_variations(snippet, os.path.join(merged_audio_pos_path, 'synthetic'), num_variations=20)
+"""
+After the feature-based scan is completed, the resulting spectrograms can be used to train a CNN model. 
+In this case, feature-based scanning serves as an initial fitering step. 
+The results of the feature-based scan can then be refined manually to accurately reflect True and False events. 
+A subset of the True and False spectrograms should then be used as training data. 
+These should be collected in a folder, with one subfolder containing positives and one subfolder containing negatives. 
+When creating spectrograms for CNN, make sure there are no axis labels (set with_labels = False when saving spectrograms).
+The classify function will output a log that can be used for statistcal analysis.
+"""
 
-# Create spectrograms for the augmented snippets and save them
-for file in os.listdir(os.path.join(merged_audio_pos_path, 'synthetic')):
-    snippet = st.load_snippet(os.path.join(merged_audio_pos_path, 'synthetic', file))
-    spec = snippet.spectrogram('mel')
-    spec.save(merged_spec_pos_path)
+from stridulant import train_model as tm, classify_spectrograms as cs
 
-# %%
-# Training the model
-# The function 'train_model' is used to train a model on the merged spectrograms.
-# The class weights are adjusted automatically based on the data imbalance.
-# this adjustment is potentially too strict, at least in cases of extreme 
-# I will have to keep testing and adjusting that, I recommend keeping the default
-# auto-weight function, but if you see a lot of overfitting, you may try to define
-# weights in this function. It is a kwarg that should look like this:
-# {0:1,1:50}, meaning {class:weight, another_class:another_weight}. 
-# the second class should be the positives and is the one you wat to give weight
-# because it is a minority of the examples.
-mod, hist = st.train_model('F:/estridulaciones/anteater data/tagged_files/Merged_spectrograms', epochs=10)
+# Replace with your stridulant folder
+train_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\CNN\train"
+test_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\CNN\test"
 
-# %%
-# Plot training history (loss and accuracy)
-# This code loads the training history from the CSV file and plots the loss and accuracy curves.
-hist = pd.read_csv(os.path.join(path, 'Merged_spectrograms/training_history.csv'))
+## Train model
+mod, hist = tm.train_model(train_folder, 
+                           batch_size=8, 
+                           epochs=20, 
+                           learning_rate=0.0001, 
+                           class_weights = None
+                           )
+"""
+Trains a Convolutional Neural Network (CNN) for binary classification of spectrogram images.
+
+This function loads images from the specified directory, preprocesses them, and trains
+a CNN model to classify whether each image represents a stridulation or not. The model
+is saved as a .keras file, and the training history (including loss and accuracy) is
+stored in a CSV file.
+
+Args:
+    train_dir (str): Path to the directory containing the training images. 
+    target_size (tuple): The target size to which each input image is resized (default is (128, 128)).
+    batch_size (int): The number of images per batch used during training (default is 32).
+    epochs (int): The number of epochs to train the model (default is 5).
+    learning_rate (float): The learning rate for the optimizer (default is 0.001).
+    class_weights (dict, optional): A dictionary of class weights for handling class imbalance. 
+    If None, the class weights are computed based on the class distribution.
+
+Returns:
+    model (tf.keras.Model): The trained CNN model.
+    history (History): The training history object containing loss and accuracy values.
+    
+"""
+
+hist = pd.read_csv(os.path.join(train_folder, "training_history.csv"))
 plt.figure(figsize=(10, 6))
 
+# 
 # Plot training and validation loss
 plt.plot(hist['loss'], label='Training loss')
 plt.plot(hist['val_loss'], label='Validation loss')
@@ -137,9 +344,7 @@ plt.legend()
 
 plt.show()
 
-# %%
-# Classify new spectrograms with the trained model
-# After training, the model is used to classify new spectrograms in the 'test' directory.
-spec_path = os.path.join(path, 'test')
-mod = 'F:/estridulaciones/anteater data/tagged_files/Merged_spectrograms/stridulation_detection_model.keras'
-st.classify_spectrograms(spec_path, mod)
+## Run model on the data to be tested
+mod = os.path.join(train_folder, "stridulation_detection_model.keras")
+cs.classify_spectrograms(test_folder, mod)
+
