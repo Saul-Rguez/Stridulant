@@ -472,10 +472,6 @@ non_target_sound_snippet.extract_features(events[0])
 non_target_sound_snippet.play()
 is_worm_rumble(non_target_sound_snippet) # Non-target sound returns False
 
-# After this, you may start processing small batches of files and checking if the output lines up with 
-# your expectations. You likely have to move back and forth between tweaking the feature-based scan and 
-# testing several audio files. As with any type of signal processing, you are likley not going to get a
-# 100% accuracy unless your sound is very distinct from the background sounds.
 ```
 
 ### 4. CNN training and use
