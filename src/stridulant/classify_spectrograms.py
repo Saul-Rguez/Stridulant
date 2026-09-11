@@ -11,7 +11,6 @@ The main functions include:
 Images are classified using a threshold of 0.5, where values greater than or equal to 0.5 are 
 considered stridulations, and the rest are classified as non-stridulations.
 
-Author: Saul Rodriguez Martinez
 Creation date: 2025-02-15
 
 """
@@ -21,7 +20,7 @@ import numpy as np
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
 import shutil
-
+import pandas as pd
 
 def load_and_prepare_model(model_path: str):
     """
@@ -75,8 +74,8 @@ def preprocess_image(file_path: str, target_size=(128, 128)):
     except Exception as e:
         print(f"Error preprocessing the image {file_path}: {e}")
         raise
-
-def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, output_dir_neg: str):
+   
+def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, output_dir_neg: str, log_name: str, action: str):
     """
     Classifies the spectrograms into two categories (stridulation and non-stridulation) 
     and moves the files to their respective folders.
@@ -95,6 +94,18 @@ def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, o
     """
     files = [f for f in os.listdir(input_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
     
+    log_folder = input_dir
+    log_file = os.path.join(log_folder, f"{log_name}.csv")
+    if not os.path.exists(log_file):
+        with open(log_file, "w") as f:
+            f.write("Snippet_name,Result\n")
+        print("New CNN log created.")
+
+    else:
+        print(f"Existing CNN log found: {log_file}. Appending.")
+
+    log_f = open(log_file, "a")
+    
     for file in files:
         file_path = os.path.join(input_dir, file)
         
@@ -103,16 +114,24 @@ def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, o
 
         # Predict the class of the image (stridulation or non-stridulation)
         prediction = model.predict(img_array) 
+        snippet_name = file
 
-        # Move the file to the corresponding directory based on prediction
-        if prediction >= 0.5:
-            shutil.move(file_path, os.path.join(output_dir_pos, file))
-            print(f"File {file} classified as positive (stridulation).")
-        else:
-            shutil.move(file_path, os.path.join(output_dir_neg, file))
-            print(f"File {file} classified as negative (non-stridulation).")
+        # Classify and move/copy the file
+        if action in ("move", "copy"):
+            is_positive = prediction >= 0.5
+            output_dir = output_dir_pos if is_positive else output_dir_neg
+        
+            # Perform the selected action
+            getattr(shutil, action)(
+                file_path,
+                os.path.join(output_dir, file)
+            )
+        
+            label = "True" if is_positive else "False"
+            print(f"File {file} classified as {label}.")
+            log_f.write(f"{snippet_name},{label}\n")
 
-def classify_spectrograms(input_dir: str, model_path: str):
+def classify_spectrograms(input_dir: str, model_path: str, log_name = "CNN_log.csv", move = True):
     """
     Main function to load the model, create output directories, and classify the spectrograms.
 
@@ -139,4 +158,7 @@ def classify_spectrograms(input_dir: str, model_path: str):
     os.makedirs(output_dir_neg, exist_ok=True)
 
     # Classify the spectrograms and move them to the appropriate directories
-    classify_and_move_spectrograms(input_dir, model, output_dir_pos, output_dir_neg)
+    if move:
+        classify_and_move_spectrograms(input_dir, model, output_dir_pos, output_dir_neg, log_name = log_name, action = "move")
+    else: 
+        classify_and_move_spectrograms(input_dir, model, output_dir_pos, output_dir_neg, log_name = log_name, action = "copy")
