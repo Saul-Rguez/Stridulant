@@ -208,6 +208,30 @@ def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: flo
     else:
        return audio  # Return original if silent
 
+def find_global_max(input_dir: str):
+    global_max = 0
+
+    with tqdm(
+        total=len(input_dir),
+        desc="Finding global max",
+        unit="file",
+        ncols=100,
+        position=0,
+        leave=True,
+    ) as pbar:
+        for file in input_dir:
+            audio, _ = librosa.load(file, sr=None)
+            max_value = np.max(np.abs(audio))
+            global_max = max(global_max, max_value)
+            pbar.update(1)
+
+    print(f"Global max is {global_max}.")
+
+    if global_max == 0:
+        raise ValueError("All files are silent or empty. Normalization is not possible.")
+
+    return global_max
+
 def normalize_global(input_dir: str, output_dir: str, target_max: float = 0.75):
     """
     Normalizes all audio files in a folder using global maximum (one peak for 
