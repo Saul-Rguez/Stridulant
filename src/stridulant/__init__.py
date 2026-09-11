@@ -12,4 +12,5 @@ from stridulant.audio_snippet import *
 from stridulant.spectrogram import *
 from stridulant.processing import *
 from stridulant.utils import *
-
+from stridulant.feature_finder import *
+from stridulant.process_annotation_table import *
