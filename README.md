@@ -17,6 +17,7 @@ Use the pipeline to apply feature-based scans over whole folders or drives of au
 See the manual for function usage and the accompanying publication for more context and case studies. Tutorials follow below. 
 
 ## Installation
+Navigate to your _Stridulant_ folder and run:
 
 ```bash
 pip install stridulant
