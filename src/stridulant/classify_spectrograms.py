@@ -20,7 +20,6 @@ import numpy as np
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
 import shutil
-import pandas as pd
 
 def load_and_prepare_model(model_path: str):
     """
