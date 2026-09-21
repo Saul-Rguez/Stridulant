@@ -151,6 +151,65 @@ def normalize_global(input_dir: str, output_dir, target_max: float = 0.75):
                 
                 pbar.set_postfix({"file": filename})  # Optional: display current filename
                 pbar.update(1)  # Update progress bar after processing each file
+    
+def highpass_filter(audio, sr, cutoff=3000, order=8):
+    """
+    Applies a high-pass Butterworth filter to the input audio signal.
+
+    Args:
+        audio (np.ndarray): Input audio signal.
+        sr (int): Sampling rate of the audio.
+        cutoff (float): Cutoff frequency in Hz. Default is 3000 Hz.
+        order (int): Filter order. Default is 8 (48 dB/octave roll-off).
+
+    Returns:
+        np.ndarray: Filtered audio signal.
+    
+    Raises:
+        ValueError: If input parameters are invalid or filtering fails.
+    """
+    try:
+        nyq = 0.5 * sr
+        normal_cutoff = cutoff / nyq
+        if normal_cutoff >= 1.0:
+            raise ValueError("Cutoff frequency must be less than Nyquist rate.")
+
+        b, a = butter(order, normal_cutoff, btype='highpass', analog=False)
+        filtered_audio = filtfilt(b, a, audio, axis=0)
+        return filtered_audio
+    except Exception as e:
+        raise ValueError(f"Error applying high-pass filter: {e}")
+  
+def lowpass_filter(audio, sr, cutoff=20000, order=8):
+    """
+    Applies a low-pass Butterworth filter to the input audio signal.
+
+    Args:
+        audio (np.ndarray): Input audio signal.
+        sr (int): Sampling rate of the audio.
+        cutoff (float): Cutoff frequency in Hz. Default is 5000 Hz.
+        order (int): Filter order. Default is 8 (48 dB/octave roll-off).
+
+    Returns:
+        np.ndarray: Filtered audio signal.
+    
+    Raises:
+        ValueError: If input parameters are invalid or filtering fails.
+    """
+    try:
+        nyq = 0.5 * sr
+        normal_cutoff = cutoff / nyq
+        
+        if normal_cutoff >= 1.0:
+            raise ValueError("Cutoff frequency must be less than Nyquist rate.")
+        if normal_cutoff <= 0.0:
+            raise ValueError("Cutoff frequency must be greater than 0.")
+
+        b, a = butter(order, normal_cutoff, btype='lowpass', analog=False)
+        filtered_audio = filtfilt(b, a, audio, axis=0)
+        return filtered_audio
+    except Exception as e:
+        raise ValueError(f"Error applying low-pass filter: {e}")        
 
 def process_table(input_table = None,
               output_dir = None, 
@@ -501,65 +560,6 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
             shutil.move(src, dst)
 
     print(f"Separation completed successfully in {csv_path}.")
-    
-def highpass_filter(audio, sr, cutoff=3000, order=8):
-    """
-    Applies a high-pass Butterworth filter to the input audio signal.
-
-    Args:
-        audio (np.ndarray): Input audio signal.
-        sr (int): Sampling rate of the audio.
-        cutoff (float): Cutoff frequency in Hz. Default is 3000 Hz.
-        order (int): Filter order. Default is 8 (48 dB/octave roll-off).
-
-    Returns:
-        np.ndarray: Filtered audio signal.
-    
-    Raises:
-        ValueError: If input parameters are invalid or filtering fails.
-    """
-    try:
-        nyq = 0.5 * sr
-        normal_cutoff = cutoff / nyq
-        if normal_cutoff >= 1.0:
-            raise ValueError("Cutoff frequency must be less than Nyquist rate.")
-
-        b, a = butter(order, normal_cutoff, btype='highpass', analog=False)
-        filtered_audio = filtfilt(b, a, audio, axis=0)
-        return filtered_audio
-    except Exception as e:
-        raise ValueError(f"Error applying high-pass filter: {e}")
-  
-def lowpass_filter(audio, sr, cutoff=20000, order=8):
-    """
-    Applies a low-pass Butterworth filter to the input audio signal.
-
-    Args:
-        audio (np.ndarray): Input audio signal.
-        sr (int): Sampling rate of the audio.
-        cutoff (float): Cutoff frequency in Hz. Default is 5000 Hz.
-        order (int): Filter order. Default is 8 (48 dB/octave roll-off).
-
-    Returns:
-        np.ndarray: Filtered audio signal.
-    
-    Raises:
-        ValueError: If input parameters are invalid or filtering fails.
-    """
-    try:
-        nyq = 0.5 * sr
-        normal_cutoff = cutoff / nyq
-        
-        if normal_cutoff >= 1.0:
-            raise ValueError("Cutoff frequency must be less than Nyquist rate.")
-        if normal_cutoff <= 0.0:
-            raise ValueError("Cutoff frequency must be greater than 0.")
-
-        b, a = butter(order, normal_cutoff, btype='lowpass', analog=False)
-        filtered_audio = filtfilt(b, a, audio, axis=0)
-        return filtered_audio
-    except Exception as e:
-        raise ValueError(f"Error applying low-pass filter: {e}")        
 
 def stridulation_scan(audio_path, snippet_duration=2.0, overlap=0, 
                min_pulses=6, min_regularity=10, min_duration=0.5,
