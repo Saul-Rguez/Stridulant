@@ -60,6 +60,61 @@ def create_snippet(audio, sr, start_time, duration_sec):
     else:
         raise ValueError(f"Snippet duration exceeds available audio length at {start_time} seconds.")
 
+def find_global_max(input_dir: str):
+    global_max = 0
+
+    with tqdm(
+        total=len(input_dir),
+        desc="Finding global max",
+        unit="file",
+        ncols=100,
+        position=0,
+        leave=True,
+    ) as pbar:
+        for file in input_dir:
+            audio, _ = librosa.load(file, sr=None)
+            max_value = np.max(np.abs(audio))
+            global_max = max(global_max, max_value)
+            pbar.update(1)
+
+    print(f"Global max is {global_max}.")
+
+    if global_max == 0:
+        raise ValueError("All files are silent or empty. Normalization is not possible.")
+
+    return global_max
+
+def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: float = None) -> np.ndarray:
+    """
+    Peak normalization of the audio signal.
+    It rescales any given audio to a percentage of the maximum amplitude.
+    Defaults to 75%.
+
+    Args:
+        audio (np.ndarray): The input audio signal.
+        target_max (float): max percentage for the peak value (default 75%)
+        global_max (float): only needed when normalizing several files to one 
+        single peak. It is the absolute maximum amplitude across several files, 
+        and it supersedes the need to calculate the maximum for each individual 
+        file. It is calculated and used within the mormalize_global function.
+
+    Returns:
+        np.ndarray: The normalized audio signal.
+    """
+    if not global_max:
+        current_max = np.max(np.abs(audio))
+    else:
+        current_max = global_max
+  
+    if current_max > 0:
+       scaling_factor = target_max / current_max
+       normalized_audio = audio * scaling_factor
+       return normalized_audio
+    else:
+       return audio  # Return original if silent
+
+
+
 def process_audio_file(audio_path, 
                        snippet_duration=2, 
                        make_spectrograms=True, 
@@ -189,99 +244,45 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
     print(f"Separation completed successfully in {csv_path}.")
     
 
-def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: float = None) -> np.ndarray:
-    """
-    Peak normalization of the audio signal.
-    It rescales any given audio to a percentage of the maximum amplitude.
-    Defaults to 75%.
-
-    Args:
-        audio (np.ndarray): The input audio signal.
-        target_max (float): max percentage for the peak value (default 75%)
-        global_max (float): only needed when normalizing several files to one 
-        single peak. It is the absolute maximum amplitude across several files, 
-        and it supersedes the need to calculate the maximum for each individual 
-        file. It is calculated and used within the mormalize_global function.
-
-    Returns:
-        np.ndarray: The normalized audio signal.
-    """
-    if not global_max:
-        current_max = np.max(np.abs(audio))
-    else:
-        current_max = global_max
-  
-    if current_max > 0:
-       scaling_factor = target_max / current_max
-       normalized_audio = audio * scaling_factor
-       return normalized_audio
-    else:
-       return audio  # Return original if silent
-
-def find_global_max(input_dir: str):
-    global_max = 0
-
-    with tqdm(
-        total=len(input_dir),
-        desc="Finding global max",
-        unit="file",
-        ncols=100,
-        position=0,
-        leave=True,
-    ) as pbar:
-        for file in input_dir:
-            audio, _ = librosa.load(file, sr=None)
-            max_value = np.max(np.abs(audio))
-            global_max = max(global_max, max_value)
-            pbar.update(1)
-
-    print(f"Global max is {global_max}.")
-
-    if global_max == 0:
-        raise ValueError("All files are silent or empty. Normalization is not possible.")
-
-    return global_max
-
-def normalize_global(input_dir: str, output_dir: str, target_max: float = 0.75):
+def normalize_global(input_dir: str, output_dir, target_max: float = 0.75):
     """
     Normalizes all audio files in a folder using global maximum (one peak for 
     all files) computed from all files in the folder.
 
     Args:
         input_folder (str): Path to the folder containing input audio files.
-        output_folder (str): Path to the folder where normalized audio files will be saved.
+        output_folder: Path to the folder where normalized audio files will be saved. Or none.
         target_max (float): max percentage for the peak value (default 75%)
     """
-    os.makedirs(output_dir, exist_ok=True)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     file_paths = []    
-
-    global_max = 0
-    with tqdm(total=len(os.listdir(input_dir)), desc="Finding global max", unit="file", ncols=100, position=0, leave=True) as pbar:
-        for filename in os.listdir(input_dir):
-            if filename.endswith(".wav"):
-                filepath = os.path.join(input_dir, filename)
-                file_paths.append(filepath)
-                audio, _ = librosa.load(filepath, sr = None)
-                max_value = np.max(np.abs(audio))
-                global_max = max(global_max, max_value)
-            pbar.update(1)
-            
+        
+    for filename in os.listdir(input_dir):
+        if filename.endswith((".wav", ".flac")):
+            filepath = os.path.join(input_dir, filename)
+            file_paths.append(filepath)
+    print(os.listdir(input_dir))
+    
+    global_max = find_global_max(file_paths)
+  
     if global_max == 0:
         raise ValueError("All files are silent or empty. Normalization is not possible.")
-
+   
     # Normalize and save each file
-    with tqdm(total=len(file_paths), desc="Normalizing files", unit="file", ncols=100, position=0, leave=True) as pbar:
-        for file in file_paths:
-            audio, sr = librosa.load(file, sr = None)
-            normalized_audio = normalize_audio(audio, target_max, global_max)
-            filename = os.path.basename(file)
-            output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
-            output_filepath = os.path.join(output_dir, output_filename)
-            sf.write(output_filepath, normalized_audio, sr)
-            
-            pbar.set_postfix({"file": filename})  # Optional: display current filename
-            pbar.update(1)  # Update progress bar after processing each file
-
+    else:
+        print(f"Global max is {global_max}.")
+        with tqdm(total=len(file_paths), desc="Normalizing files", unit="file", ncols=100, position=0, leave=True) as pbar:
+            for file in file_paths:
+                audio, sr = librosa.load(file, sr = None)
+                normalized_audio = normalize_audio(audio, target_max, global_max)
+                filename = os.path.basename(file)
+                output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
+                output_filepath = os.path.join(output_dir, output_filename)
+                sf.write(output_filepath, normalized_audio, sr)
+                
+                pbar.set_postfix({"file": filename})  # Optional: display current filename
+                pbar.update(1)  # Update progress bar after processing each file
 
 def highpass_filter(audio, sr, cutoff=3000, order=8):
     """
