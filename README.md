@@ -35,19 +35,18 @@ Stridulant requires:
 import stridulant as st
 import os
 
-# Find tutorial files here xxxxxxxx  #
-os.chdir("Tutorials")
-output_folder = r"Tutorials\Output"
+# Replace with your stridulant folder #
+os.chdir(r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials")
+output_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\Output"
 
 """
 This tutorial assumes you have succesfully installed Stridulant and are now ready to use it.
 Here you will learn how to work with single audio files and snippets. As a starting point,
 we recommend you find one event of interest in your own audio, or use our example audio 
-and work through each step. For guidance on how to choose values for env_smooth and
-threshold_percentile, see our case studies in the accompanying publication.
+and work through each step.
 
 """
-
+# %%
 ###########################################################################
 ## Snippets ##
 ###########################################################################
@@ -64,6 +63,16 @@ Snippet_1.play()
 # Save snippet #
 Snippet_1.save("Test_1", output_dir = output_folder, verbose = True, metadata = True)
 
+# %%
+###########################################################################
+## Find and extract events ##
+###########################################################################
+
+events = Snippet_1.find_events(min_event_duration = .3, env_smooth= 25, threshold_percentile= 50)
+features = Snippet_1.extract_features(events[0], pulse_dist=1)
+st.save_features(features, os.path.join(output_folder, "save_features.csv"))
+
+# %%
 ###########################################################################
 ## Spectrograms  ##
 ###########################################################################
@@ -77,12 +86,14 @@ spectrogram_2 = Snippet_1.spectrogram(spec_type = "hilbert", env_smooth = 10)
 
 # Plot spectrogram #
 spectrogram_1.plot()
+spectrogram_2.plot()
 spectrogram_2.plot_events(events = events)
 
 # Save spectrogram object #
 spectrogram_1.save_img("test", output_dir = output_folder, with_labels = True)
 spectrogram_2.save_img("test", output_dir = output_folder, with_labels = True, events = events)
 
+# %%
 ###########################################################################
 ## Normalize ##
 ###########################################################################
@@ -90,14 +101,15 @@ spectrogram_2.save_img("test", output_dir = output_folder, with_labels = True, e
 Snippet_1_normalize = st.create_snippet(audio, sr, 1452, 3)
 
 # Normalize a single snippet #
-Snippet_1_normalize = Snippet_1_normalize.normalize()
+Snippet_1_normalize.normalize()
 
 # Normalize within one audio file #
 audio_normalize = st.normalize_audio(audio = audio, target_max = 0.75)
-
+#
 # Global normalization (no example files) #
 # st.normalize_global("your folder here", output_dir = "your folder here", target_max = 0.75)
 
+# %%
 ###########################################################################
 ## Filtering ##
 ###########################################################################
@@ -110,25 +122,6 @@ Snippet_1_filtered.audio = st.highpass_filter(Snippet_1.audio, sr, cutoff = 3000
 # Lowpass filter #
 Snippet_1_filtered.audio = st.lowpass_filter(Snippet_1.audio, sr, cutoff = 20000, order = 8)
 
-###########################################################################
-## Find and extract events ##
-###########################################################################
-
-events = Snippet_1.find_events(min_event_duration = .3, env_smooth= 25, threshold_percentile= 50)
-
-# Extract features of a single event #
-features2 = Snippet_1.extract_features(events[0], pulse_dist=1)
-st.save_features(features2,"Tutorials\Output\save_features.csv")
-
-# Or, extract features from all events to a csv file #
-st.feature_finder(
-          output_folder = output_folder,
-          audio = Snippet_1,
-          min_event_duration= 0.3, 
-          env_smooth= 25, 
-          threshold_percentile= 50,
-          pulse_dist = 1,
-          output_name = "snippet_features")
 ```
 
 ## Acoustic features details
@@ -144,14 +137,29 @@ The `extract_features()` method returns a dictionary with:
 | `dynamic_range`          | Difference between the loudest and quietest spectral amplitudes      | dB                                             |
 | `avg_pulse_duration`     | Mean pulse duration                                                  | Seconds                                        |
 | `avg_pulse_interval`     | Mean time between pulses                                             | Seconds                                        |
-| `pulse_count`            | Number of pulses                                                     | —                                              |
-| `pulse_density`          | Pulses per second                                                    | Pulses/second                                  |
+| `pulse_count`            | Number of pulses                                                     | Count per events                               |
+| `pulse_density`          | Pulses per second                                                    | Count per second                               |
 | `pulse_regularity`       | Rhythm consistency                                                   | Standard deviation of intervals between pulses |
 | `frequency_range`        | Bandwidth containing 90% of spectral energy                          | Hz                                             |
 | `spectral_centroid_mean` | Dominant frequency                                                   | Hz                                             |
 | `spectral_roll_off`      | Frequency at which 85% of energy falls below                         | Hz                                             |
 | `tonal_variation`        | Frequency stability                                                  | Standard deviation of the mean of centroid     |
 
+In `extract_features()`, if a number of mfcc dimensions is defined, the following statistics will be calculated for each dimension.
+
+| Feature        | Description                                                   | Unit                           |
+| -------------- | ------------------------------------------------------------- | ------------------------------ |
+| `min.cc`       | Minimum value of the coefficient across frames               | Coefficient units              |
+| `max.cc`       | Maximum value of the coefficient across frames               | Coefficient units              |
+| `median.cc`    | Median value of the coefficient across frames                | Coefficient units              |
+| `mean.cc`      | Mean value of the coefficient across frames                  | Coefficient units              |
+| `var.cc`       | Variance of the coefficient across frames                    | Coefficient units²             |
+| `skew.cc`      | Skewness (asymmetry) of the coefficient distribution         | Dimensionless                   |
+| `kurt.cc`      | Kurtosis (tailedness/peakedness) of the coefficient distribution | Dimensionless               |
+| `mean.d1.cc`   | Mean of the first derivative (velocity) of the coefficient   | Coefficient units/frame        |
+| `var.d1.cc`    | Variance of the first derivative (velocity) of the coefficient | Coefficient units²/frame²    |
+| `mean.d2.cc`   | Mean of the second derivative (acceleration) of the coefficient | Coefficient units/frame²     |
+| `var.d2.cc`    | Variance of the second derivative (acceleration) of the coefficient | Coefficient units²/frame⁴ |
 
 ### 1. Prepare snippet sets
 
@@ -159,88 +167,103 @@ The `extract_features()` method returns a dictionary with:
 import stridulant as st
 import os
 
-# Replace with your folder path #
-os.chdir("Tutorials")
-output_folder ="Tutorials\Output"
+# Replace with your stridulant folder #
+os.chdir(r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials")
+output_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\Output"
 
 """
-This tutorial will help you create snippets from annotation tables. After, it shows how
-you can use one or more folders of snippets to start exploring your target sound, and investigate how it
-differentiates from non-target sounds.
-
-If you have an annotation table, you may start by importing it and creating snippets and spectrograms based on the table.
-If you already have a folder with snippets, you can move on to finding events and extracting features.
-You are of course also welcome to use the example files provided.
+This tutorial will demonstrate how to create snippet sets from audio files. It is
+also possible to import annotation tables, made in for example Raven.
 
 """
 
+# %%
 ##########################################################################
 ## Making snippets and/or spectrograms from annotation tables ##
 ###########################################################################
 
-st.process_table(input_table = r"raven_A20_251010_007_Tr1_2.Table.1.selections.txt",
+"""
+The example files contain start and end times of positive (i.e., containing a target sound) 
+and negative (i.e., containing a non-target sound) start and end times. 
+
+Defining a snippet duration ensures all the output snippets are the same length,
+even if the annotated sections are not. This makes event detection more reliable.
+
+"""
+
+# Add kwargs for spectrograms as needed. 
+st.process_table(input_table = "raven_A20_251010_007_Tr1_2.Table.1.selections.txt",
               output_dir = output_folder,
               delim = "\t",
-              audio = r"Worm_audios\A20_251010_007_Tr1_2.flac",
-              make_snippets = True,
-              make_spectrograms = True,
+              audio = "Worm_audios\A20_251010_007_Tr1_2.flac",
               snippet_duration=3,
-              start_time_column = "Begin Time (s)",
-              end_time_column = "End Time (s)",
               ids = ["Selection", "Annotation"],
-              spec_type = "mel", 
-              n_mels = 30, 
-              hop_length = 10, 
-              window = "boxcar", 
-              env_smooth = 25
+              spec_type = "hilbert"
               )     
 
-st.process_table(input_table = r"raven_C20_251016_005_Tr1_1.Table.1.selections.txt",
+st.process_table(input_table = "raven_C20_251016_005_Tr1_1.Table.1.selections.txt",
               output_dir = output_folder,
               delim = "\t",
-              audio = r"Worm_audios\C20_251016_005_Tr1_1.flac",
-              make_snippets = True,
-              make_spectrograms = True,
+              audio = "Worm_audios\C20_251016_005_Tr1_1.flac",
               snippet_duration=3,
-              start_time_column = "Begin Time (s)",
-              end_time_column = "End Time (s)",
               ids = ["Selection", "Annotation"],
-              spec_type = "mel", 
-              n_mels = 30, 
-              hop_length = 10, 
-              window = "boxcar", 
-              env_smooth = 25
+              spec_type = "hilbert"
               )     
 
-###########################################################################
-## Extracting features from folders of snippets ##
-###########################################################################
-
-st.batch_feature_finder(
+## Add kwargs for extract_features as needed ##
+st.feature_extractor(
           output_folder = output_folder,
-          snippet_folder_list = [os.path.join(output_folder, "Snippets_A20_251010_007_Tr1_2"), 
-                                 os.path.join(output_folder, "Snippets_C20_251016_005_Tr1_1")],
-          min_event_duration=0.3,
-          threshold_percentile=50,
-          env_smooth=25,
-          pulse_dist=1,
-          output_name = "features_worms",
-          df_format = "long")
+          snippet_folder = "Output\Annotated_A20_251010_007_Tr1_2\Snippets",
+          log_name="features_A20.csv",
+          n_mfcc = 1)
 
-## The resulting data frame can be used to explore differences in sounds. Here follows an example using seaborn. ##
+st.feature_extractor(
+          output_folder = output_folder,
+          snippet_folder = "Output\Annotated_C20_251016_005_Tr1_1\Snippets",
+          log_name="features_C20.csv",
+          n_mfcc = 1)
+
+# %%
+##########################################################################
+## Processing full audio files into snippets ##
+###########################################################################
+
+## Add kwargs for spectrogram generation as needed ##
+st.process_audio_file(r"Worm_audios\A20_251010_007_Tr1_2.flac", output_folder = output_folder, spec_type = "hilbert")
+
+## Subset event snippets ##
+st.event_extractor(snippet_folder = "Output\A20_251010_007_Tr1_2\Audio_snippets",
+                    spec_type = "hilbert",
+                    metadata = False)
+
+## The output can be manually sorted into Positive (containing a target sound) and Negative (containing a non-target sound) folders. ##
+## Then, features can be extracted from both. ##
+#st.feature_extractor(snippet_folder = "Folder_with_positives", log_name = "Positive_events_features.csv")
+#st.feature_extractor(snippet_folder = "Folder_with_negatives", log_name = "Negative_event_features.csv")
+
+#%%
+
+## In this tutorial we will continue with the annotated files. ##
+## The resulting data frame can be used to explore differences in sounds. ##
+## Here follows an example using seaborn. ##
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-data = pd.read_csv(os.path.join(output_folder, "features_worms.csv"))
+data_A20 = pd.read_csv(os.path.join(output_folder, "features_A20.csv"))
+data_C20 = pd.read_csv(os.path.join(output_folder, "features_C20.csv"))
+data = pd.concat([data_A20, data_C20], ignore_index=True)
+
 data["Result"] = data.iloc[:, 0].str.contains("Negative", na=False)\
                                .map({True: "Negative", False: "Positive"})
+
 feature_columns = data.columns.drop([data.columns[0], "Result"])
 
-n_cols = 4
+data.shape[1]
+n_cols = 7
 n_rows = 4
-plt.figure(figsize=(5*n_cols, 4*n_rows))
+plt.figure(figsize=(8*n_cols,6 *n_rows))
 
 for i, col in enumerate(feature_columns, 1):
     plt.subplot(n_rows, n_cols, i)
@@ -259,19 +282,18 @@ plt.show()
 import stridulant as st
 import os
 
-# Replace with your folder path #
-os.chdir("Tutorials")
-folder = "Tutorials"
-
+# Replace with your Tutorial folder #
+os.chdir(r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials")
+folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials"
+# %%
 """
 In this tutorial we will demonstrate how to detect stridulations and UAE on single snippets.
 We will further demonstrate how to build your own function using worm sounds as an example.
-Once the settings are confirmed to detect events in known positive snippet, batch processing functions can be used.
-See the Batch processing tutorial on how to proceed after this one. See the accompanying publication for  
-more information about the case studies. 
+Once the settings are confirmed to detect events in known positive snippet, the feature-based
+scan can be applied in the pipeline.
  
 """
-
+# %%
 # Load an audio file on which to detect stridulations #
 audio, sr = st.load_audio(r"Ant_stridulation.FLAC")
 
@@ -284,7 +306,7 @@ Snippet_1.is_stridulation(min_event_duration=0.2,
                 threshold_percentile=25, 
                 min_pulses=6, 
                 min_regularity=10,
-                min_duration=0.5, 
+                uncoupled_min_duration=0.5, 
                 max_duration=1, 
                 sustain=0.5, 
                 pulse_dist=20, 
@@ -293,7 +315,7 @@ Snippet_1.is_stridulation(min_event_duration=0.2,
                 enable_coupled=True, 
                 coupled_min_duration=0.22, 
                 coupled_gap=0.6)
-
+# %%
 """
 is_stridulation evaluates if the audio snippet contains a promising stridulation signal based on 
 acoustic features. Analyzes all detected events and returns features if ANY event 
@@ -342,7 +364,7 @@ Args:
 Returns:
     dict/False: Features dictionary if stridulation found, False otherwise.
 """
-
+# %%
 # Load an audio file on which to detect UAEs #
 audio, sr = st.load_audio(r"Plant_sound.WAV") 
 
@@ -361,8 +383,9 @@ Snippet_1.is_cavitation(spectral_rolloff_min = 23000,
                        pulse_dist = 1, 
                        env_smooth = .1, 
                        threshold_percentile = 98)
+# %%
 """
-Evaluates if the audio snippet contains a promising ultrasonic acoustic emission based on 
+Evaluates if the audio snippet contains a promising cavitation signal based on 
 acoustic features. Analyzes the most energetic event and return True if its classified as UAE.
          
 This function is mostly based on what is known from tree UAE from the literature:
@@ -372,7 +395,7 @@ This function is mostly based on what is known from tree UAE from the literature
     
 To use the function:
     a) you need relatively clean audio.
-    b) audio cannot be normalized
+    b) audio cannot be normalized (if normalized the absolute energy becomes relative)
 
 Args:
     spectral_rolloff_min: Minimum frequency at which at 85% of energy falls below.
@@ -401,7 +424,7 @@ Returns:
 """   
 
 #######################################################
-
+# %%
 """
 EXAMPLE OF USER-DEFINED FUNCTION 
 
@@ -437,9 +460,7 @@ def is_worm_rumble(snippet,
                 features = snippet.extract_features(event, pulse_dist=pulse_dist)
 
                 if (
-                              # Define the arguments.
-                              # After "features" should come a features name corresponding
-                              # to the extract_features output (see below to create such output). 
+                        # Define the arguments. After "features" should come a features name corresponding to the extract_features output (see below to create such output).
                         features["pulse_density"] > min_pulse_density 
                         and features["tonal_variation"] < max_tonal_variation
                         and features["spectral_rolloff"] > min_spectral_rolloff
@@ -451,8 +472,8 @@ def is_worm_rumble(snippet,
             return False
 
 """
-Using batch_feature_finder (see the tutorial Prepare snippet sets) we were able to establish the following
-characteristics of the target sound. 
+Using batch_feature_finder (see the tutorial Prepare snippet sets) we were able to establish the following differences
+between the target and non-target sounds.
     - The event duration was most often higher than 0.2 seconds.
     - The minimum pulse count was around 15 (excluding some outliers).
     - The spectral roll-off was high.
@@ -471,26 +492,19 @@ events = non_target_sound_snippet.find_events(min_event_duration=0.5, threshold_
 non_target_sound_snippet.extract_features(events[0])
 non_target_sound_snippet.play()
 is_worm_rumble(non_target_sound_snippet) # Non-target sound returns False
-
 ```
 
 ### 4. CNN training and use
 
 ```python
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Feb 24 10:13:43 2026
-
-"""
-
 from stridulant import train_model as tm, classify_spectrograms as cs
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
 
 # Replace with your stridulant folder
-train_folder = "Tutorials\CNN\train"
-test_folder = "Tutorials\CNN\test"
+train_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\CNN\train"
+test_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\CNN\test"
 
 """
 In this tutorial we will use spectrograms of sounds from recordings of drying plants to train an CNN.
