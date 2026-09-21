@@ -42,10 +42,10 @@ import os
 
 def is_worm_rumble(
     snippet,
-    min_event_duration=.3,       # mandatory aurgument
-    env_smooth=25,               # mandatory aurgument
-    threshold_percentile=50,     # mandatory aurgument
-    pulse_dist=1,                # mandatory aurgument
+    min_event_duration=.3,       # mandatory aurgument needed for find_events()
+    env_smooth=25,               # mandatory aurgument needed for find_events() and extract_features()
+    threshold_percentile=50,     # mandatory aurgument needed for find_events()
+    pulse_dist=1,                # mandatory aurgument needed for extract_features()
     # Feature arguments:
     min_pulse_density=160,
     min_pulse_count=100,
@@ -56,16 +56,16 @@ def is_worm_rumble(
 
     # Detect events
     events = snippet.find_events(
-        min_event_duration,
-        threshold_percentile,
-        env_smooth
+        min_event_duration=min_event_duration,
+        threshold_percentile=threshold_percentile,
+        env_smooth=env_smooth
     )
 
     if not events:
         return False
     else:
         for event in events:
-            features = snippet.extract_features(event, pulse_dist=pulse_dist)
+            features = snippet.extract_features(event, env_smooth=env_smooth, pulse_dist=pulse_dist)
 
             if (
                 features["pulse_density"] > min_pulse_density
@@ -83,10 +83,10 @@ def is_worm_rumble(
 # --- Find or create log file ---
 
 # Define where the results should be saved
-output_folder = r"T:\test"
+output_folder = r"T:"
 
 # Define which folder(s) to collect wav files from
-folder_list = [r"A:\Stridulation snippets"]
+folder_list = [r"T:\snippets"]
 
 # Define the name of the file where the results will be logged.
 log_name = "snippet_log"
@@ -107,7 +107,6 @@ else:
     df = pd.read_csv(log_file)
     processed_files = set(df["Original_audio_path"].unique())
 
-
 # --- Gather files ending with wav or flac ---
 
 all_audio_files = []
@@ -121,13 +120,12 @@ for folder in folder_list:
 
 # --- Sort files ---
 
-filtered_files = all_audio_files[1:10]
-filtered_files.sort(key=str.lower, reverse=False)
+all_audio_files.sort(key=str.lower, reverse=False)
 
 # %%
 # --- Find global max ---
 # If audio should be normalized across files, find the global max across files.
-# global_max = st.find_global_max(filtered_files)
+#global_max = st.find_global_max(all_audio_files)
 
 # %%
 # --- Start loop --- #
@@ -136,11 +134,11 @@ filtered_files.sort(key=str.lower, reverse=False)
 log_f = open(log_file, "a")
 
 print(f"Total files processed: {len(processed_files)}")
-print(f"Total files remaining: {len(filtered_files) - len(processed_files)}")
+print(f"Total files remaining: {len(all_audio_files) - len(processed_files)}")
 
 try:
 
-    for file_path in filtered_files:
+    for file_path in all_audio_files:
 
         # Skip the file if has already been processed
         if file_path in processed_files:
@@ -156,13 +154,15 @@ try:
             base_name = os.path.splitext(base_name)[0]
 
             # --- Load audio --- #
-            audio, sr = st.load_audio(file_path)
+            audio, sr = st.load_audio(file_path) 
+            
             print("Audio loaded")
 
-            # --- Apply filters, normalization, augmentation, etc as needed --- #
+            # --- Apply filters and normalization as needed --- #
             # audio = st.highpass_filter(audio, sr)
             # audio = st.lowpass_filter(audio, sr)
-            # audio = st.normalize_audio(audio, global_max)
+            # audio = st.normalize_audio(audio, global_max = global_max) # Global normalization
+            # audio = st.normalize_audio(audio) # File-level normalization
 
             # --- Calculate the number of snippets to be made in the file. Skips if the file is too short. ---
             snippet_duration = 2  # How long the snippets should be
@@ -196,8 +196,11 @@ try:
                     snippet_duration
                 )
 
+                # --- Preparation on the snippet level ---
                 # Snippet.normalize()
-                events = Snippet.find_events()
+                
+                # --- Find events ---
+                events = Snippet.find_events(min_event_duration=.3, env_smooth=25, threshold_percentile=50)
 
                 # --- Create binary event results: "Yes" if event(s) are found, "No" if snippet is empty ---
                 if not events:
@@ -212,31 +215,33 @@ try:
                 if events:
                     event_binary = "Yes"
 
-                    # It is possible to skip this part of the loop to just filter events using find_events
-                    # In that case, all events above a certain energy threshold will be saved.
-                    # If you are using your own feature based scan, make sure it is loaded.
-                    # Here we use the stridulation scan.
-
                     # --- Run feature-based scan on snippet ---
+
+                    # Make sure the feature-based scan you want to use is loaded. Here we use the is_worm_rumble defined above.
                     # bool makes sure the result will be returned as either True or False
-                    result = bool(Snippet.is_stridulation())
-                    # or for example, result = bool(is_worm_rumble(Snippet))
+                    
+                    result = bool(is_worm_rumble(Snippet))
+                    # or, result = "NA" to not use a feature-based scan.
 
                     # Save to log
                     log_f.write(
                         f"{file_path},{start_time},{end_time},{event_binary},{result}\n"
                     )
-
-                    # Save spectrogram
-                    spectrogram = Snippet.spectrogram()
+                    
                     if result is True:
                         folder = "pos"
                     elif result is False:
                         folder = "neg"
+                    else:
+                        folder = "output"
+                        
+                    # Save spectrogram
+                    spectrogram = Snippet.spectrogram()
 
                     output_path = os.path.join(
                         output_folder,
                         "Results",
+                        "Spectrograms",
                         folder
                     )
 
@@ -246,14 +251,11 @@ try:
                         with_labels=False
                     )
 
-                    # Save snippet
-                    if result is True:
-                        folder = "True_snippets"
-                    elif result is False:
-                        folder = "False_snippets"
+                    # Save snippet                       
                     output_path = os.path.join(
                         output_folder,
                         "Results",
+                        "Snippets",
                         folder
                     )
 
@@ -282,17 +284,18 @@ The results of the feature-based scan can then be refined manually to accurately
 A subset of the True and False spectrograms should then be used as training data. 
 These should be collected in a folder, with one subfolder containing positives and one subfolder containing negatives. 
 When creating spectrograms for CNN, make sure there are no axis labels (set with_labels = False when saving spectrograms).
-The classify function will output a log that can be used for statistcal analysis.
+The classify_spectrograms() function will output a log that can be used for statistcal analysis.
 """
 
 from stridulant import train_model as tm, classify_spectrograms as cs
 
 # Replace with your stridulant folder
-train_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\CNN\train"
-test_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\CNN\test"
+train_dir = r"CNN\train"
+test_folder = r"CNN\test"
 
 ## Train model
-mod, hist = tm.train_model(train_folder, 
+mod, hist = tm.train_model(train_dir,
+                           target_size=(128, 128), 
                            batch_size=8, 
                            epochs=20, 
                            learning_rate=0.0001, 
@@ -307,7 +310,8 @@ is saved as a .keras file, and the training history (including loss and accuracy
 stored in a CSV file.
 
 Args:
-    train_dir (str): Path to the directory containing the training images. 
+    train_dir (str): Path to the directory containing the training images. One subfolder should contain positives, 
+        and one shoud contain negatives. 
     target_size (tuple): The target size to which each input image is resized (default is (128, 128)).
     batch_size (int): The number of images per batch used during training (default is 32).
     epochs (int): The number of epochs to train the model (default is 5).
@@ -321,7 +325,7 @@ Returns:
     
 """
 
-hist = pd.read_csv(os.path.join(train_folder, "training_history.csv"))
+hist = pd.read_csv(os.path.join(train_dir, "training_history.csv"))
 plt.figure(figsize=(10, 6))
 
 # 
@@ -345,6 +349,6 @@ plt.legend()
 plt.show()
 
 ## Run model on the data to be tested
-mod = os.path.join(train_folder, "stridulation_detection_model.keras")
+mod = os.path.join(train_dir, "stridulation_detection_model.keras")
 cs.classify_spectrograms(test_folder, mod)
 
