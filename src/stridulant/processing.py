@@ -8,8 +8,7 @@ Description:
     - Saving audio snippets and spectrogram images to specified directories.
     - Playing and visualizing audio data.
 
-    The module supports a range of audio file processing tasks for further analysis, 
-    especially in the context of stridulation detection in ants. It uses the 
+    The module supports a range of audio file processing tasks for further analysis. It uses the 
     AudioSnippet class to handle audio data and the Spectrogram class to visualize 
     frequency content.
 
@@ -60,18 +59,18 @@ def create_snippet(audio, sr, start_time, duration_sec):
     else:
         raise ValueError(f"Snippet duration exceeds available audio length at {start_time} seconds.")
 
-def find_global_max(input_dir: str):
+def find_global_max(file_paths):
     global_max = 0
 
     with tqdm(
-        total=len(input_dir),
+        total=len(file_paths),
         desc="Finding global max",
         unit="file",
         ncols=100,
         position=0,
         leave=True,
     ) as pbar:
-        for file in input_dir:
+        for file in file_paths:
             audio, _ = librosa.load(file, sr=None)
             max_value = np.max(np.abs(audio))
             global_max = max(global_max, max_value)
@@ -113,8 +112,124 @@ def normalize_audio(audio: np.ndarray, target_max: float = 0.75, global_max: flo
     else:
        return audio  # Return original if silent
 
+def normalize_global(input_dir: str, output_dir, target_max: float = 0.75):
+    """
+    Normalizes all audio files in a folder using global maximum (one peak for 
+    all files) computed from all files in the folder.
 
+    Args:
+        input_folder (str): Path to the folder containing input audio files.
+        output_folder: Path to the folder where normalized audio files will be saved. Or none.
+        target_max (float): max percentage for the peak value (default 75%)
+    """
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    file_paths = []    
+        
+    for filename in os.listdir(input_dir):
+        if filename.endswith((".wav", ".flac")):
+            filepath = os.path.join(input_dir, filename)
+            file_paths.append(filepath)
+    print(os.listdir(input_dir))
+    
+    global_max = find_global_max(file_paths)
+  
+    if global_max == 0:
+        raise ValueError("All files are silent or empty. Normalization is not possible.")
+   
+    # Normalize and save each file
+    else:
+        print(f"Global max is {global_max}.")
+        with tqdm(total=len(file_paths), desc="Normalizing files", unit="file", ncols=100, position=0, leave=True) as pbar:
+            for file in file_paths:
+                audio, sr = librosa.load(file, sr = None)
+                normalized_audio = normalize_audio(audio, target_max, global_max)
+                filename = os.path.basename(file)
+                output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
+                output_filepath = os.path.join(output_dir, output_filename)
+                sf.write(output_filepath, normalized_audio, sr)
+                
+                pbar.set_postfix({"file": filename})  # Optional: display current filename
+                pbar.update(1)  # Update progress bar after processing each file
 
+def process_table(input_table = None,
+              output_dir = None, 
+              delim = ",",
+              audio = None,
+              make_snippets = True,
+              start_time_column = "Begin Time (s)",
+              end_time_column = "End Time (s)",
+              snippet_duration = None,
+              ids = ["Selection"],
+              
+              make_spectrograms = True,
+              color = "inferno", 
+              with_labels=True, 
+              verbose=True, 
+              metadata = True,
+              **spectrogram_kwargs):
+    """
+    This function reads a selection or annotation table. The default is set for selection tables made in Raven.
+    However, any table including a start and end time column plus up to 3 identifying columns can be imported.
+                           
+    args: 
+    input_table: path to a flat table in formats such as csv and txt
+    output_dir: where to save snippets and spectrogram folders.
+    delim: symbol used to seperate columns
+    audio: path to audio
+    make_snippets: if True, will save snippets
+    make_spectrograms: if True, spectrograms will be saved.    
+    start_time_column: the name of the column containing event start times
+    end_time_column: the name of the column containing event end times.
+    snippet_duration: if specified, snippets will all be the same length. The start and end time columns will be
+        used to find the middle between the beginning and end time, on which the snippet will be centered.
+    ids: Identifying columns, such as treatment, channel, selection, etc.
+    **spectrogram_kwargs: additional arguments to pass to spectrogram().
+ 
+    """
+  
+    table = pd.read_csv(input_table, delimiter=delim)
+    file_name = os.path.basename(audio)
+    file_name = file_name.rsplit( ".", 1 )[ 0 ] 
+    audio, sr = load_audio(audio)
+    print("Audio file found and loaded.")
+    file_output_dir = os.path.join(output_dir, f"Annotated_{file_name}")
+    snippet_output_dir = os.path.join(file_output_dir, "Snippets")
+    spectrogram_output_dir = os.path.join(file_output_dir, "Spectrograms")
+    
+    for index, row in table.iterrows():
+
+        name = file_name
+        for col in ids:
+            if col:
+                name += f"_{col}_{row[col]}"
+                     
+        if snippet_duration:
+            duration = row[end_time_column]-row[start_time_column]
+            middle = row[start_time_column]+duration/2
+            start = middle - snippet_duration/2
+            start = max(0, start)
+            snippet = create_snippet(audio, sr, start, snippet_duration)
+        else:
+            snippet_duration = row[end_time_column]-row[start_time_column]
+            snippet = create_snippet(audio, sr, row[start_time_column], snippet_duration)
+            
+        if make_snippets:
+            snippet.save(source_name = name, output_dir = snippet_output_dir, verbose=False)
+            
+        if make_spectrograms:
+            spectrogram = snippet.spectrogram(**spectrogram_kwargs)
+            spectrogram.save_img(
+                                name,
+                                output_dir=spectrogram_output_dir,
+                                color=color,
+                                with_labels=with_labels,
+                                verbose=verbose,
+                                metadata=metadata
+                            )
+                                        
+    print("Done reading annotation table and saving snippets and/or spectrograms.")
+                  
 def process_audio_file(audio_path, 
                        snippet_duration=2, 
                        make_spectrograms=True, 
@@ -194,7 +309,151 @@ def process_audio_file(audio_path,
         matplotlib.use(original_backend)
         plt.close('all') 
         print("Graphic backend restored.")             
+
+def event_extractor(event_snippet_folder = None,
+                    snippet_folder = None,
+                    make_spectrograms = True,
+                    min_event_duration=0.2, 
+                    threshold_percentile=25, 
+                    env_smooth=10,
+                    color = "inferno", 
+                    with_labels=False, 
+                    verbose=False, 
+                    metadata = False,
+                    **spectrogram_kwargs):
+    """
+    Finds snippets with events in a folder of snippets. Creates a folder with 
+    the subset of snippets that contain events.
+    
+    Returns
+    -------
+    None.
+
+    """
+    all_audio_files = [
+    f for f in glob.glob(os.path.join(snippet_folder, "*"))
+    if f.lower().endswith((".wav", ".flac"))
+    ]
+    
+    if event_snippet_folder is None:
+        output_folder = snippet_folder
         
+    for path in all_audio_files:
+        audio, sr = load_audio(path)
+        total_duration = len(audio) / sr
+        audio_filename = os.path.basename(path)
+        base_name = os.path.splitext(audio_filename)[0]
+        snippets_output = os.path.join(output_folder, "Event_snippets")
+        os.makedirs(snippets_output, exist_ok=True)
+        if make_spectrograms:
+            spectrogram_output_dir = os.path.join(output_folder, "Event_spectrograms")
+            os.makedirs(snippets_output, exist_ok=True)
+        
+        # Create a snippet #
+        snippet = create_snippet(audio, sr, 0, total_duration)
+        
+        # Finding events #
+        events = snippet.find_events(min_event_duration=min_event_duration,
+                                     threshold_percentile=threshold_percentile, 
+                                     env_smooth=env_smooth)
+
+        if events:
+            snippet.save(base_name, snippets_output, verbose = False, metadata=metadata)
+            if make_spectrograms:
+                spectrogram = snippet.spectrogram(**spectrogram_kwargs)
+                spectrogram.save_img(
+                                    base_name,
+                                    output_dir=spectrogram_output_dir,
+                                    color=color,
+                                    with_labels=with_labels,
+                                    verbose=verbose,
+                                    metadata=metadata
+                                )
+            
+def feature_extractor(
+          output_folder = None,
+          snippet_folder = None,
+          log_name = "features.csv",
+          df_format = "long", 
+          min_event_duration=0.2, 
+          threshold_percentile=25, 
+          env_smooth=10,
+          **feature_kwargs):
+    
+    """
+    
+    Parameters
+    ----------
+    output_folder : where to store the csv file.
+    
+    output_name : name of the csv file. The default is "features.csv".
+    
+    snippet_folder : file path with snippets to extract features from.
+    
+    snippet_folder_list : Input in case multiple folders need to be processed.
+    
+    min_event_duration: the minimum amount of seconds an event needs to be to be detected.
+    
+    threshold_percentile (float): Percentile value for energy threshold (0-100) (default: 25)
+    
+    env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
+        the peaks on that time range. Often numbers around 10 or so give a good trade-off between the smoothness
+        of the line and the retention of features. Smaller numbers will give higher details, bigger numbers 
+        smoother lines. These numbers operate with the sampling rate, for ultrasounds you probably want to go 
+        smaller, like 1 or even 0.1. Just make sure that int(env_smooth/1000*sr)>0. You can check the sr of your
+        audio when you load it, you'll get sr that you can print, or within the snippet, with snippet.sr
+    
+    **feature_kwargs: extra arguments for extract_features().
+                               
+    df_format: whether to make a "long" or "wide" dataframe.
+
+
+    Returns
+    -------
+    A csv file with all events and their features.
+    
+    """
+
+    all_audio_files = [
+    f for f in glob.glob(os.path.join(snippet_folder, "*"))
+    if f.lower().endswith((".wav", ".flac"))
+    ]
+    
+    if output_folder is None:
+        output_folder = snippet_folder
+        
+    features = pd.DataFrame()
+
+    for path in all_audio_files:
+        audio, sr = load_audio(path)
+        total_duration = len(audio) / sr
+           
+        # Create a snippet #
+        snippet = create_snippet(audio, sr, 0, total_duration)
+        
+        # Finding events #
+        events = snippet.find_events(min_event_duration=min_event_duration,
+                                     threshold_percentile=threshold_percentile, 
+                                     env_smooth=env_smooth)
+
+        if events:
+            for event in events:
+                features_list = snippet.extract_features(event, 
+                                                         env_smooth=env_smooth,
+                                                         **feature_kwargs)
+                df = pd.DataFrame(features_list, index=[path]).T
+
+        # Merge into main dataframe
+                features = pd.concat([features, df], axis=1)
+            
+        else:
+            continue
+    if df_format == "long":
+        features = features.T
+    output_path = os.path.join(output_folder, log_name)
+    features.to_csv(output_path, index=True)
+    print("All features exported to CSV.")
+
 def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0, csv_delim = '\t'):
     """
     Separates audio snippets and spectrograms into positive and negative folders based on annotations.
@@ -243,47 +502,6 @@ def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0
 
     print(f"Separation completed successfully in {csv_path}.")
     
-
-def normalize_global(input_dir: str, output_dir, target_max: float = 0.75):
-    """
-    Normalizes all audio files in a folder using global maximum (one peak for 
-    all files) computed from all files in the folder.
-
-    Args:
-        input_folder (str): Path to the folder containing input audio files.
-        output_folder: Path to the folder where normalized audio files will be saved. Or none.
-        target_max (float): max percentage for the peak value (default 75%)
-    """
-    if output_dir:
-        os.makedirs(output_dir, exist_ok=True)
-    file_paths = []    
-        
-    for filename in os.listdir(input_dir):
-        if filename.endswith((".wav", ".flac")):
-            filepath = os.path.join(input_dir, filename)
-            file_paths.append(filepath)
-    print(os.listdir(input_dir))
-    
-    global_max = find_global_max(file_paths)
-  
-    if global_max == 0:
-        raise ValueError("All files are silent or empty. Normalization is not possible.")
-   
-    # Normalize and save each file
-    else:
-        print(f"Global max is {global_max}.")
-        with tqdm(total=len(file_paths), desc="Normalizing files", unit="file", ncols=100, position=0, leave=True) as pbar:
-            for file in file_paths:
-                audio, sr = librosa.load(file, sr = None)
-                normalized_audio = normalize_audio(audio, target_max, global_max)
-                filename = os.path.basename(file)
-                output_filename = f"{os.path.splitext(filename)[0]}_normalized.wav"
-                output_filepath = os.path.join(output_dir, output_filename)
-                sf.write(output_filepath, normalized_audio, sr)
-                
-                pbar.set_postfix({"file": filename})  # Optional: display current filename
-                pbar.update(1)  # Update progress bar after processing each file
-
 def highpass_filter(audio, sr, cutoff=3000, order=8):
     """
     Applies a high-pass Butterworth filter to the input audio signal.
@@ -311,8 +529,7 @@ def highpass_filter(audio, sr, cutoff=3000, order=8):
         return filtered_audio
     except Exception as e:
         raise ValueError(f"Error applying high-pass filter: {e}")
-        
-
+  
 def lowpass_filter(audio, sr, cutoff=20000, order=8):
     """
     Applies a low-pass Butterworth filter to the input audio signal.
@@ -342,8 +559,7 @@ def lowpass_filter(audio, sr, cutoff=20000, order=8):
         filtered_audio = filtfilt(b, a, audio, axis=0)
         return filtered_audio
     except Exception as e:
-        raise ValueError(f"Error applying low-pass filter: {e}")
-        
+        raise ValueError(f"Error applying low-pass filter: {e}")        
 
 def stridulation_scan(audio_path, snippet_duration=2.0, overlap=0, 
                min_pulses=6, min_regularity=10, min_duration=0.5,
