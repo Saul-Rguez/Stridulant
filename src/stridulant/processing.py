@@ -60,7 +60,16 @@ def create_snippet(audio, sr, start_time, duration_sec):
     else:
         raise ValueError(f"Snippet duration exceeds available audio length at {start_time} seconds.")
 
-def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_type="mel",n_fft = 256, hop_length = 224, window = "boxcar", color = "inferno", snip_norm = False, output_folder=None, update_freq=10):
+def process_audio_file(audio_path, 
+                       snippet_duration=2, 
+                       make_spectrograms=True, 
+                       with_labels=False, 
+                       color = "inferno", 
+                       snip_norm = False, 
+                       output_folder=None, 
+                       update_freq=10, 
+                       overlap=0,
+                       **spectrogram_kwargs):
     """
     Processes the given audio file by splitting it into snippets, generating a mel spectrogram for each, 
     and saving them in appropriate directories.
@@ -69,30 +78,30 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
     audio_path (str): Path to the input audio file.
     snippet_duration (float): Duration of each snippet in seconds. Default is 2 seconds.
     output_folder (str): Base directory where the snippets and spectrograms will be saved. If None, uses the same directory as the audio file.
+    with_spectrograms: Set to True if spectrograms should be generated.
     with_labels (bool): toggles the axis and labels.
-    spec_type (str): chooses between the 3 posible types, hil, mel or fft.
     color (str): choose a colormap for the image
-    n_fft (int): size of the window for the fft (see spectrogram function).
-    hop_length (int): overlap of the windows (see spectrogram funtion)
-    window (str): window type (see spectrogram function)
     update_freq (int): Frequency of updates for the progress bar (every X snippets).
+    overlap (int): overlap between the snippets
+    **spectrogram_kwargs: extra kwargs to go to spectrogram()
     """
     original_backend = matplotlib.get_backend()
     try:
+        base_name = os.path.splitext(os.path.basename(audio_path))[0]
         if output_folder is None:
             output_folder = os.path.splitext(audio_path)[0]
+        else:
+            snippets_dir = os.path.join(output_folder, base_name, "Audio_snippets")
+            spectrograms_dir = os.path.join(output_folder, base_name, "Spectrograms")
+            os.makedirs(snippets_dir, exist_ok=True)
+            os.makedirs(spectrograms_dir, exist_ok=True)
     
         audio, sr = load_audio(audio_path)
-    
-        base_name = os.path.splitext(os.path.basename(audio_path))[0]
-        snippets_dir = os.path.join(output_folder, "Audio_snippets")
-        spectrograms_dir = os.path.join(output_folder, "Spectrograms")
-        os.makedirs(snippets_dir, exist_ok=True)
-        os.makedirs(spectrograms_dir, exist_ok=True)
-    
+        
+        total_duration = len(audio) / sr
         start_time = 0
-    
-        total_snippets = int(len(audio) / (snippet_duration * sr))
+        step_size = snippet_duration - overlap
+        total_snippets = int((total_duration - snippet_duration) / step_size) + 1
     
         matplotlib.use('Agg')
         print(f"Processing file {audio_path}")
@@ -105,11 +114,12 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
                         snippet.normalize()
     
                     snippet.save(base_name, snippets_dir, verbose=False)
+                    
+                    if make_spectrograms:
+                        spec = snippet.spectrogram(**spectrogram_kwargs)
+                        spec.save_img(base_name, spectrograms_dir, with_labels=with_labels, color=color, verbose=False)
     
-                    spec = snippet.spectrogram(spec_type=spec_type,n_fft = n_fft, hop_length = hop_length, window = window)
-                    spec.save_img(base_name, spectrograms_dir, with_labels=with_labels, color=color, verbose=False)
-    
-                    start_time += snippet_duration
+                    start_time += step_size
                     if i % update_freq == 0:
                         pbar.update(update_freq)
         
@@ -128,7 +138,7 @@ def process_audio_file(audio_path, snippet_duration=2, with_labels=False, spec_t
     finally:
         matplotlib.use(original_backend)
         plt.close('all') 
-        print("Graphic backend restored.")
+        print("Graphic backend restored.")             
         
 def annotate_data(csv_path, snippets_dir, spectrograms_dir, snippet_duration=2.0, csv_delim = '\t'):
     """
