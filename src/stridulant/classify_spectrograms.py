@@ -87,6 +87,7 @@ def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, o
     - model (tf.keras.Model): The loaded model for classification.
     - output_dir_pos (str): Directory where stridulation spectrograms will be moved.
     - output_dir_neg (str): Directory where non-stridulation spectrograms will be moved.
+    - log_name: name of the log where to report results.
 
     Example:
         classify_and_move_spectrograms('path/to/input', model, 'path/to/positive', 'path/to/negative')
@@ -130,7 +131,7 @@ def classify_and_move_spectrograms(input_dir: str, model, output_dir_pos: str, o
             print(f"File {file} classified as {label}.")
             log_f.write(f"{snippet_name},{label}\n")
 
-def classify_spectrograms(input_dir: str, model_path: str, log_name = "CNN_log.csv", move = True):
+def classify_spectrograms(input_dir: str, model_path: str, log_name = "CNN_log.csv", action = "copy"):
     """
     Main function to load the model, create output directories, and classify the spectrograms.
 
@@ -143,6 +144,7 @@ def classify_spectrograms(input_dir: str, model_path: str, log_name = "CNN_log.c
     - model_path (str): Path to the pre-trained model.
     - output_dir_pos (str): Directory for stridulation spectrograms.
     - output_dir_neg (str): Directory for non-stridulation spectrograms.
+    - action: wether to move or copy the spectrograms into subfolders.
 
     Example:
         classify_spectrograms('path/to/input', 'path/to/model.keras')
@@ -157,7 +159,7 @@ def classify_spectrograms(input_dir: str, model_path: str, log_name = "CNN_log.c
     os.makedirs(output_dir_neg, exist_ok=True)
 
     # Classify the spectrograms and move them to the appropriate directories
-    if move:
+    if action == "move":
         classify_and_move_spectrograms(input_dir, model, output_dir_pos, output_dir_neg, log_name = log_name, action = "move")
     else: 
         classify_and_move_spectrograms(input_dir, model, output_dir_pos, output_dir_neg, log_name = log_name, action = "copy")
