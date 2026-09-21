@@ -471,24 +471,14 @@ class AudioSnippet:
 
         return events
     
-    def extract_features(self, event, 
+    def extract_features(self, event, *,
                          pulse_dist = 20, 
                          sustain_threshold_percentile = 30,
                          pulse_threshold_percentile = 70,
                          env_smooth = 10,
                          n_mfcc=0, 
                          preemp_coef = 0.97,
-                         dct_type = 2,
-                         norm = "ortho",
-                         n_fft = 1200,
-                         win_length = 1200,
-                         hop_length = 480,
-                         n_mels = 40,
-                         fmin=0,
-                         fmax=24000,
-                         power=2,
-                         htk=False,
-                         center=False):
+                         **mfcc_kwargs):
         """
         Extracts features from a specific audio event.
         
@@ -508,8 +498,8 @@ class AudioSnippet:
             pulse_threshold_percentile: The percentile of the smoothed envelope used to 
                     count pulses.
                 
-            sustain_threshold_percentile: The precentile of the smoothed envelope used to 
-                    calculate sustain, i.e. the ratio of the event contaning audio.
+            sustain_threshold_percentile: The percentile of the smoothed envelope used to 
+                    calculate sustain, i.e. the ratio of the event containing audio.
                                
             env_smooth (float): smooth factor for the Hilbert envelope. It is a number in miliseconds that smooths 
                     the peaks on that time range. Often numbers around 10 or so give a good trade-off between the smoothness
@@ -651,11 +641,11 @@ class AudioSnippet:
             # Spectral centroid mean (indicates dominant frequency range)
             features['spectral_centroid_mean'] = np.mean(spectral_centroids)
             
-            # Added by Tam, spectral rolloff
+            # Spectral rolloff
             rolloff = librosa.feature.spectral_rolloff(y=event_audio, S=S, sr=self.sr, n_fft=128, hop_length=4, window="hann", roll_percent=0.85)
             features['spectral_rolloff'] = rolloff.mean()
             
-            # Added by Tam, MFCC features for Garance
+            # MFCC features
             if n_mfcc > 0:
                 y_pre = librosa.effects.preemphasis(self.audio, coef=preemp_coef)
                 
@@ -663,20 +653,7 @@ class AudioSnippet:
                     y=y_pre,
                     sr=self.sr,
                     n_mfcc=n_mfcc,
-                    dct_type=dct_type,
-                    norm=norm,
-                
-                    n_fft=n_fft,
-                    win_length=win_length,
-                    hop_length=hop_length,
-                
-                    n_mels=n_mels,
-                    fmin=fmin,
-                    fmax=fmax,
-                
-                    power=power,
-                    htk=htk,
-                    center=center
+                    **mfcc_kwargs
                 )
             
                 # First and second derivatives
