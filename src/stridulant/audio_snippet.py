@@ -831,7 +831,7 @@ class AudioSnippet:
          return False
      
         
-    def is_cavitation(self, spectral_rolloff_min = 23000, 
+    def is_uae(self, spectral_rolloff_min = 23000, 
                            min_energy = 0.0015,
                            max_energy = 0.01, 
                            min_event_duration=0.00005, 
@@ -840,7 +840,7 @@ class AudioSnippet:
                            env_smooth = .1, 
                            threshold_percentile = 98):
          """
-         Evaluates if the audio snippet contains a promising cavitation signal based on 
+         Evaluates if the audio snippet contains a promising UAE signal based on 
          acoustic features. Analyzes the most energetic event and returns features if its energy 
          is over the threshold.
          
