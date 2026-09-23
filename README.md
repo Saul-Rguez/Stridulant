@@ -276,7 +276,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-### 3. Feature-based scans
+### 2. Feature-based scans
 
 ```python
 import stridulant as st
@@ -494,7 +494,7 @@ non_target_sound_snippet.play()
 is_worm_rumble(non_target_sound_snippet) # Non-target sound returns False
 ```
 
-### 4. CNN training and use
+### 3. CNN training and use
 
 ```python
 from stridulant import train_model as tm, classify_spectrograms as cs
