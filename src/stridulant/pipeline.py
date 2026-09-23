@@ -221,6 +221,7 @@ try:
                     # bool makes sure the result will be returned as either True or False
                     
                     result = bool(is_worm_rumble(Snippet))
+                    # or, e.g. bool(is_stridulation(Snippet))
                     # or, result = "NA" to not use a feature-based scan.
 
                     # Save to log
