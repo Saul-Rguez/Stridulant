@@ -31,6 +31,8 @@ Stridulant requires:
 
 ### 0. Basic functionality
 
+Download the example files used in the tutorial here.
+
 ```python
 """
 Created on Thu Feb 19 09:42:29 2026
