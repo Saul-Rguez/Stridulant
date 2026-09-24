@@ -229,7 +229,7 @@ def process_table(input_table = None,
               **spectrogram_kwargs):
     """
     This function reads a selection or annotation table. The default is set for selection tables made in Raven.
-    However, any table including a start and end time column plus up to 3 identifying columns can be imported.
+    However, any table including a start and end time column plus identifying columns can be imported.
                            
     args: 
     input_table: path to a flat table in formats such as csv and txt
