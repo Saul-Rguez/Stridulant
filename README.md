@@ -32,6 +32,10 @@ Stridulant requires:
 ### 0. Basic functionality
 
 ```python
+"""
+Created on Thu Feb 19 09:42:29 2026
+
+"""
 import stridulant as st
 import os
 
@@ -121,7 +125,6 @@ Snippet_1_filtered.audio = st.highpass_filter(Snippet_1.audio, sr, cutoff = 3000
 
 # Lowpass filter #
 Snippet_1_filtered.audio = st.lowpass_filter(Snippet_1.audio, sr, cutoff = 20000, order = 8)
-
 ```
 
 ## Acoustic features details
@@ -167,7 +170,7 @@ In `extract_features()`, if a number of mfcc dimensions is defined, the followin
 import stridulant as st
 import os
 
-# Replace with your stridulant folder #
+# Replace with your Tutorial folder #
 os.chdir(r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials")
 output_folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials\Output"
 
@@ -183,15 +186,20 @@ also possible to import annotation tables, made in for example Raven.
 ###########################################################################
 
 """
-The example files contain start and end times of positive (i.e., containing a target sound) 
+The example text files contain start and end times of positive (i.e., containing a target sound) 
 and negative (i.e., containing a non-target sound) start and end times. 
 
 Defining a snippet duration ensures all the output snippets are the same length,
-even if the annotated sections are not. This makes event detection more reliable.
+even if the annotated sections are not. It does this by centering the snippet between the
+specified start and end times. Having snippets of the same duration can make event 
+detection in later steps more reliable.
+
+Not defining a snippet length will simply use the start and end times in the table as
+start and end times of the snippets.
 
 """
 
-# Add kwargs for spectrograms as needed. 
+# Add kwargs for spectrogram() as needed. 
 st.process_table(input_table = "raven_A20_251010_007_Tr1_2.Table.1.selections.txt",
               output_dir = output_folder,
               delim = "\t",
@@ -210,7 +218,7 @@ st.process_table(input_table = "raven_C20_251016_005_Tr1_1.Table.1.selections.tx
               spec_type = "hilbert"
               )     
 
-## Add kwargs for extract_features as needed ##
+## Add kwargs for extract_features() as needed ##
 st.feature_extractor(
           output_folder = output_folder,
           snippet_folder = "Output\Annotated_A20_251010_007_Tr1_2\Snippets",
@@ -229,9 +237,11 @@ st.feature_extractor(
 ###########################################################################
 
 ## Add kwargs for spectrogram generation as needed ##
+## Cuts a whole audio file into snippets ##
 st.process_audio_file(r"Worm_audios\A20_251010_007_Tr1_2.flac", output_folder = output_folder, spec_type = "hilbert")
 
 ## Subset event snippets ##
+## Loops through all snippets and selects those with acoustic events ##
 st.event_extractor(snippet_folder = "Output\A20_251010_007_Tr1_2\Audio_snippets",
                     spec_type = "hilbert",
                     metadata = False)
@@ -243,8 +253,7 @@ st.event_extractor(snippet_folder = "Output\A20_251010_007_Tr1_2\Audio_snippets"
 
 #%%
 
-## In this tutorial we will continue with the annotated files. ##
-## The resulting data frame can be used to explore differences in sounds. ##
+## The resulting acoutic features dataframes can be used to explore differences in sounds. ##
 ## Here follows an example using seaborn. ##
 
 import pandas as pd
@@ -279,12 +288,18 @@ plt.show()
 ### 2. Feature-based scans
 
 ```python
+"""
+Created on Thu Feb 19 12:05:23 2026
+
+@author: Tamara van Steijn
+"""
 import stridulant as st
 import os
 
 # Replace with your Tutorial folder #
 os.chdir(r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials")
 folder = r"C:\Users\tavn0004\stridulant\src\stridulant\Tutorials"
+
 # %%
 """
 In this tutorial we will demonstrate how to detect stridulations and UAE on single snippets.
@@ -303,8 +318,8 @@ Snippet_1.play()
 
 # Detect stridulation event #
 Snippet_1.is_stridulation(min_event_duration=0.2, 
-                threshold_percentile=25, 
-                min_pulses=6, 
+                threshold_percentile=30, 
+                min_pulses=3, 
                 min_regularity=10,
                 uncoupled_min_duration=0.5, 
                 max_duration=1, 
@@ -315,6 +330,7 @@ Snippet_1.is_stridulation(min_event_duration=0.2,
                 enable_coupled=True, 
                 coupled_min_duration=0.22, 
                 coupled_gap=0.6)
+
 # %%
 """
 is_stridulation evaluates if the audio snippet contains a promising stridulation signal based on 
@@ -375,7 +391,7 @@ spectrogram_1 = Snippet_1.spectrogram(spec_type = "fft", n_fft = 128, hop_length
 spectrogram_1.plot()
 
 # Detect cavitation event #
-Snippet_1.is_cavitation(spectral_rolloff_min = 23000, 
+Snippet_1.is_uae(spectral_rolloff_min = 23000, 
                        min_energy = 0.0015, 
                        min_event_duration=0.00005, 
                        max_event_duration = 0.002,
@@ -428,7 +444,7 @@ Returns:
 """
 EXAMPLE OF USER-DEFINED FUNCTION 
 
-Warning: Take care that throughout the process of developing your function, 
+Note: Take care that throughout the process of developing your function, 
 you use the same snippet_duration, env_smooh, threshold_percentile and pulse_dist values, 
 as differences in these parameters can lead to different outcomes. 
 """
@@ -472,12 +488,11 @@ def is_worm_rumble(snippet,
             return False
 
 """
-Using batch_feature_finder (see the tutorial Prepare snippet sets) we were able to establish the following differences
+Using feature_extractor() (see the tutorial Prepare snippet sets) we were able to establish the following differences
 between the target and non-target sounds.
     - The event duration was most often higher than 0.2 seconds.
     - The minimum pulse count was around 15 (excluding some outliers).
     - The spectral roll-off was high.
-All final functions should return True or False in order to be compatible with the batch processing function.
 """
 
 audio, sr = st.load_audio(r"Worm_audios\A20_251010_007_Tr1_2.flac")
@@ -497,6 +512,11 @@ is_worm_rumble(non_target_sound_snippet) # Non-target sound returns False
 ### 3. CNN training and use
 
 ```python
+"""
+Created on Tue Feb 24 10:13:43 2026
+
+"""
+
 from stridulant import train_model as tm, classify_spectrograms as cs
 import matplotlib.pyplot as plt
 import pandas as pd
