@@ -266,12 +266,13 @@ try:
                     )
 
             #  --- Close loop and close log --- 
+            
+            print(f"Saving data from {file_path}")
+            log_f.flush()
 
         except Exception as e:
-            print("Error processing file:", file_path, e)
+            print("Skipping file due to error:", file_path, e)
 
-        print(f"Saving data from {file_path}")
-        log_f.flush()
 
 finally:
     log_f.close()
