@@ -451,9 +451,11 @@ def feature_extractor(
     
     snippet_folder_list : Input in case multiple folders need to be processed.
     
-    min_event_duration: the minimum amount of seconds an event needs to be to be detected.
+    min_event_duration: the minimum amount of seconds an event needs to be to be detected. 
+        Note: if the whole snippet should be treated as one event, set to 0.
     
-    threshold_percentile (float): Percentile value for energy threshold (0-100) (default: 25)
+    threshold_percentile (float): Percentile value for energy threshold (0-100) (default: 25) 
+        Note: if the whole snippet should be treated as one event, set to 0.
     
     env_smooth (float): smooth factor for the Hilbert emvelope. It is a number in miliseconds that smooths 
         the peaks on that time range. Often numbers around 10 or so give a good trade-off between the smoothness
