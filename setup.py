@@ -17,7 +17,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Saúl Rodríguez Martínez',  
     author_email='saul.rguezm@gmail.com', 
-    url='https://bitbucket.org/Saul_Rguez/stridulant',  
+    url='https://github.com/Saul-Rguez/Stridulant',  
     packages=find_packages(where="src"), 
     package_dir={'': 'src'},
     install_requires=[ 
