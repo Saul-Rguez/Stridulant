@@ -839,7 +839,7 @@ class AudioSnippet:
                            pulse_dist = 1, 
                            env_smooth = .1, 
                            threshold_percentile = 98):
-         """
+        """
          Evaluates if the audio snippet contains a promising UAE signal based on 
          acoustic features. Analyzes the most energetic event and returns features if its energy 
          is over the threshold.
@@ -885,7 +885,7 @@ class AudioSnippet:
              
          Returns:
              dict/False: Features dictionary if stridulation found, False otherwise.
-         """     
+        """     
         
         
         # Detect events
