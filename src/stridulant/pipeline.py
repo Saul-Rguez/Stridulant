@@ -86,7 +86,7 @@ def is_worm_rumble(
 output_folder = r"T:"
 
 # Define which folder(s) to collect wav files from
-folder_list = [r"T:\snippets"]
+folder_list = [r"T:\audios"]
 
 # Define the name of the file where the results will be logged.
 log_name = "snippet_log"
